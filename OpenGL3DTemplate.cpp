@@ -173,11 +173,22 @@ struct Vec3 {
     float x, y, z;
 };
 
+Vec3 gCamPos = { 0,0,0 };
+Vec3 gCamDir = { 0,0,-1 };
+Vec3 gCamRight = { 1,0,0 };
+Vec3 gCamUp = { 0,1,0 };
+
 Vec3 makeVec(float x, float y, float z) { return { x,y,z }; }
+Vec3 add(const Vec3& a, const Vec3& b) { return { a.x + b.x,a.y + b.y,a.z + b.z }; }
+Vec3 mul(const Vec3& a, float s) { return { a.x * s,a.y * s,a.z * s }; }
 
-Vec3 sub(const Vec3& a, const Vec3& b) { return { a.x - b.x, a.y - b.y, a.z - b.z }; }
-
-float dot(const Vec3& a, const Vec3& b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+Vec3 cross(const Vec3& a, const Vec3& b) {
+    return {
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x
+    };
+}
 
 Vec3 normalize(const Vec3& v) {
     float len2 = v.x * v.x + v.y * v.y + v.z * v.z;
@@ -187,79 +198,96 @@ Vec3 normalize(const Vec3& v) {
 }
 
 
-bool rayHitsZombie(const Vec3& camPos, const Vec3& camDir) {
+
+
+bool  showBulletRay = false;
+Vec3  bulletStart;
+Vec3  bulletEnd;
+float bulletRayTime = 0.0f;      // remaining time to show
+
+
+bool rayHitsZombie(float& outHitDist) {
     if (!zombieAlive || enemies.empty()) return false;
 
     const GameObject& z = enemies[0];
 
-    // approximate zombie center height (torso)
-    float zombieCenterY = z.y + 1.0f;  // tweak
+    float zombieCenterY = z.y + 1.0f;  // tweak if needed
 
-    Vec3 center = makeVec(z.x, zombieCenterY, z.z);
-    Vec3 oc = sub(center, camPos);
+    Vec3 center = { z.x, zombieCenterY, z.z };
 
-    float t = dot(oc, camDir);
+    // oc = vector from camera to zombie center
+    Vec3 oc = { center.x - gCamPos.x,
+                center.y - gCamPos.y,
+                center.z - gCamPos.z };
+
+    // projection length t along ray
+    float t = oc.x * gCamDir.x + oc.y * gCamDir.y + oc.z * gCamDir.z;
     if (t < 0.0f || t > SHOOT_RANGE) return false;
 
     // closest point on ray to center
     Vec3 closest = {
-        camPos.x + camDir.x * t,
-        camPos.y + camDir.y * t,
-        camPos.z + camDir.z * t
+        gCamPos.x + gCamDir.x * t,
+        gCamPos.y + gCamDir.y * t,
+        gCamPos.z + gCamDir.z * t
     };
-    Vec3 diff = sub(center, closest);
-    float dist2 = dot(diff, diff);
 
-    return dist2 <= (ZOMBIE_RADIUS * ZOMBIE_RADIUS);
+    Vec3 diff = { center.x - closest.x,
+                  center.y - closest.y,
+                  center.z - closest.z };
+
+    float dist2 = diff.x * diff.x + diff.y * diff.y + diff.z * diff.z;
+
+    if (dist2 <= ZOMBIE_RADIUS * ZOMBIE_RADIUS) {
+        outHitDist = t;   // where the bullet hit
+        return true;
+    }
+    return false;
 }
-
-
-
-void getCameraRay(Vec3& camPos, Vec3& camDir) {
-    // base position is player pos + eye height
-    float eyeHeight = 1.6f; // your player "eyes"
-    float camX = playerX;
-    float camY = playerY + eyeHeight;
-    float camZ = playerZ;
-
-    // yaw / pitch in radians
-    float yawRad = playerYaw * 3.14159265f / 180.0f;
-    float pitchRad = camPitch * 3.14159265f / 180.0f;
-
-    // forward vector from yaw, pitch
-    float fx = cosf(pitchRad) * sinf(yawRad);
-    float fy = sinf(pitchRad);
-    float fz = -cosf(pitchRad) * cosf(yawRad);   // consistent with -Z forward
-
-    camPos = makeVec(camX, camY, camZ);
-    camDir = normalize(makeVec(fx, fy, fz));
-}
-
 
 void tryShoot() {
-    if (playerAmmo <= 0) {
-        // out of ammo, maybe play dry click later
-        return;
-    }
+    if (playerAmmo <= 0) return;
 
     playerAmmo--;
     isFiring = true;
-    gunRecoil = 8.0f;  // degrees up
-    muzzleFlashTime = 0.1f;  // small flash time
+    gunRecoil = 8.0f;
+    muzzleFlashTime = 0.1f;
 
-    Vec3 camPos, camDir;
-    getCameraRay(camPos, camDir);
+    float hitDist = SHOOT_RANGE;
+    float tHit = 0.0f;
 
-    if (rayHitsZombie(camPos, camDir)) {
-        zombieHealth -= 34;   // 3 hits to kill
+    // keep your logic, just make sure rayHitsZombie uses gCamPos/gCamDir or same direction
+    if (rayHitsZombie(tHit)) {
+        hitDist = tHit;
+        zombieHealth -= 34;
         playerScore += 20;
-
         if (zombieHealth <= 0) {
             zombieAlive = false;
-            playerScore += 50; // kill bonus
+            playerScore += 50;
         }
     }
+
+    // === VISUAL RAY FROM MUZZLE ===
+    showBulletRay = true;
+    bulletRayTime = 0.08f;  // short flash
+
+    // offsets in CAMERA space (approx muzzle position)
+    float muzzleRight = 0.15f;  // to the right of camera
+    float muzzleUp = -0.10f;  // slightly down (because gun is lower)
+    float muzzleForward = 0.6f;   // in front of camera
+
+    // transform that to world space: P_muzzle = CamPos + R*x + U*y + D*z
+    Vec3 offset =
+        add(
+            add(mul(gCamRight, muzzleRight),
+                mul(gCamUp, muzzleUp)),
+            mul(gCamDir, muzzleForward)
+        );
+
+    bulletStart = add(gCamPos, offset);
+    bulletEnd = add(bulletStart, mul(gCamDir, hitDist));
 }
+
+
 
 
 
@@ -532,50 +560,96 @@ void drawSimpleHands() {
     glPopMatrix();
 }
 
+void drawBetterHands() {
+    glDisable(GL_TEXTURE_2D);
+    glColor3f(0.8f, 0.7f, 0.6f);  // skin-ish for hands
+
+    // Right forearm
+    glPushMatrix();
+    glTranslatef(0.15f, -0.05f, -0.1f); // shift to right
+    glRotatef(-20.0f, 1, 0, 0);        // slight bend
+    glScalef(0.12f, 0.12f, 0.4f);      // long in Z
+    glutSolidCube(1.0f);
+    glPopMatrix();
+
+    // Right hand (fist)
+    glPushMatrix();
+    glTranslatef(0.15f, -0.12f, -0.35f); // in front of gun
+    glScalef(0.13f, 0.13f, 0.13f);
+    glutSolidCube(1.0f);
+    glPopMatrix();
+
+    // Left forearm
+    glPushMatrix();
+    glTranslatef(-0.05f, -0.03f, -0.15f); // slightly left and back
+    glRotatef(-15.0f, 1, 0, 0);
+    glScalef(0.10f, 0.10f, 0.35f);
+    glutSolidCube(1.0f);
+    glPopMatrix();
+
+    // Left hand (supporting)
+    glPushMatrix();
+    glTranslatef(-0.02f, -0.10f, -0.32f);
+    glScalef(0.11f, 0.11f, 0.11f);
+    glutSolidCube(1.0f);
+    glPopMatrix();
+
+    glColor3f(1, 1, 1);
+}
 
 
 void applyCamera() {
-    float eyeHeight = 1.7f;     // player eye level
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    float eyeHeight = 1.6f;
+
+    // choose camera position (FPS or TPS)
+    if (viewMode == VIEW_FPS) {
+        gCamPos.x = playerX;
+        gCamPos.y = playerY + eyeHeight;
+        gCamPos.z = playerZ;
+    }
+    else {
+        float yawRad = playerYaw * 3.14159265f / 180.0f;
+        float fx = sinf(yawRad);
+        float fz = -cosf(yawRad);
+
+        float camDistBack = 5.0f;
+        float camHeight = 2.5f;
+
+        gCamPos.x = playerX - fx * camDistBack;
+        gCamPos.y = playerY + camHeight;
+        gCamPos.z = playerZ - fz * camDistBack;
+    }
+
+    // forward direction from yaw + pitch
     float yawRad = playerYaw * 3.14159265f / 180.0f;
     float pitchRad = camPitch * 3.14159265f / 180.0f;
 
-    // forward direction from yaw + pitch
-    float dirX = cosf(pitchRad) * sinf(yawRad);
-    float dirY = sinf(pitchRad);
-    float dirZ = -cosf(pitchRad) * cosf(yawRad);
+    gCamDir.x = cosf(pitchRad) * sinf(yawRad);
+    gCamDir.y = sinf(pitchRad);
+    gCamDir.z = -cosf(pitchRad) * cosf(yawRad);
+    gCamDir = normalize(gCamDir);
 
-    float camX, camY, camZ;
-    float targetX, targetY, targetZ;
+    // build camera basis: right / up
+    Vec3 worldUp = { 0,1,0 };
+    gCamRight = normalize(cross(gCamDir, worldUp));
+    gCamUp = normalize(cross(gCamRight, gCamDir));
 
-    if (viewMode == VIEW_FPS) {
-        // camera at player eyes
-        camX = playerX;
-        camY = playerY + eyeHeight;
-        camZ = playerZ;
+    // target point for gluLookAt
+    float cx = gCamPos.x + gCamDir.x;
+    float cy = gCamPos.y + gCamDir.y;
+    float cz = gCamPos.z + gCamDir.z;
 
-        targetX = camX + dirX;
-        targetY = camY + dirY;
-        targetZ = camZ + dirZ;
-    }
-    else { // VIEW_TPS
-        float distBehind = 4.0f;
-        float height = 2.0f;
-
-        // place camera behind player along -forward
-        camX = playerX - sinf(yawRad) * distBehind;
-        camZ = playerZ + cosf(yawRad) * distBehind;
-        camY = playerY + height;
-
-        targetX = playerX;
-        targetY = playerY + eyeHeight;
-        targetZ = playerZ;
-    }
-
-    glLoadIdentity();
-    gluLookAt(camX, camY, camZ,
-        targetX, targetY, targetZ,
-        0.0f, 1.0f, 0.0f);
+    gluLookAt(
+        gCamPos.x, gCamPos.y, gCamPos.z,
+        cx, cy, cz,
+        0.0f, 1.0f, 0.0f
+    );
 }
+
+
 
 void drawCorridorWithClip(const GameObject& c, double localCutX) {
     glPushMatrix();
@@ -664,72 +738,61 @@ void Display(void) {
     }
 
 
+
+
+    // 2) bullet ray in world
+    if (showBulletRay && bulletRayTime > 0.0f) {
+        glDisable(GL_TEXTURE_2D);
+        // you can leave depth test ON so it can disappear behind walls,
+        // or turn it off if you want "always visible":
+        // glDisable(GL_DEPTH_TEST);
+
+        glLineWidth(3.0f);
+        glColor3f(1.0f, 0.9f, 0.3f);
+
+        glBegin(GL_LINES);
+        glVertex3f(bulletStart.x- 0.03f, bulletStart.y, bulletStart.z);
+        glVertex3f(bulletEnd.x, bulletEnd.y, bulletEnd.z);
+        glEnd();
+
+        glColor3f(1, 1, 1);
+        // glEnable(GL_DEPTH_TEST);  // if you disabled it above
+    }
+
+    // 3) FPS gun overlay (hands + gun, no ray here anymore)
+    if (viewMode == VIEW_FPS) {
+        glDisable(GL_DEPTH_TEST);
+
+        glMatrixMode(GL_MODELVIEW);
+        glPushMatrix();
+        glLoadIdentity();
+
+        glTranslatef(0.2f, -0.18f, -0.75f);
+        glRotatef(gunRecoil, 1, 0, 0);
+        glRotatef(180.0f, 0, 1, 0);
+        glRotatef(5.0f, 0, 1, 0);
+
+        drawBetterHands();
+
+        glPushMatrix();
+        glScalef(SCALE_GUN, SCALE_GUN, SCALE_GUN);
+        drawTextured(gunMesh, gunTexture);
+        glPopMatrix();
+
+        // muzzle flash as before...
+
+        glPopMatrix();
+        glEnable(GL_DEPTH_TEST);
+    }
+
+
+
     if (viewMode == VIEW_TPS) {
         playerVisual.x = playerX;
         playerVisual.y = playerY;
         playerVisual.z = playerZ;
-        playerVisual.ry = playerYaw + 180.0f;
+        playerVisual.ry = playerYaw;
         playerVisual.draw();
-    }
-
-    // 2) Gun as view-model (FPS only)
-    
-    if (viewMode == VIEW_FPS) {
-        glPushMatrix();
-        glLoadIdentity();
-
-        glTranslatef(0.05f, -0.18f, -0.75f);
-        glRotatef(180.0f, 0, 1, 0);
-        glRotatef(5.0f, 0, 1, 0);
-        glScalef(SCALE_GUN, SCALE_GUN, SCALE_GUN);
-
-        // gun
-        drawTextured(gunMesh, gunTexture);
-
-        // simple arms under same transform
-        drawSimpleHands();
-        if (viewMode == VIEW_FPS) {
-            glPushMatrix();
-            glLoadIdentity();
-
-            glTranslatef(0.05f, -0.18f, -0.75f);
-
-            // recoil (pitch up)
-            glRotatef(gunRecoil, 1, 0, 0);
-
-            glRotatef(180.0f, 0, 1, 0);
-            glRotatef(5.0f, 0, 1, 0);
-
-            // 1) hands
-            drawSimpleHands();
-
-            // 2) gun
-            glPushMatrix();
-            glScalef(SCALE_GUN, SCALE_GUN, SCALE_GUN);
-            drawTextured(gunMesh, gunTexture);
-            glPopMatrix();
-
-            // 3) simple muzzle flash (little glowing quad) when shooting
-            if (muzzleFlashTime > 0.0f) {
-                glDisable(GL_TEXTURE_2D);
-                glColor3f(1.0f, 0.9f, 0.3f);  // bright yellowish
-
-                glPushMatrix();
-                // position at gun barrel roughly (tweak)
-                glTranslatef(0.0f, 0.0f, -0.5f);
-                glScalef(0.05f, 0.05f, 0.05f);
-                glutSolidSphere(1.0f, 8, 8);  // little glowing ball
-                glPopMatrix();
-
-                glColor3f(1, 1, 1);
-            }
-
-            glPopMatrix();
-        }
-
-
-
-        glPopMatrix();
     }
 
  // --- HUD overlay ---
@@ -826,6 +889,35 @@ void Anim() {
     if (muzzleFlashTime > 0.0f) {
         muzzleFlashTime -= 0.02f;  // tweak based on your frame rate
         if (muzzleFlashTime < 0.0f) muzzleFlashTime = 0.0f;
+    }
+
+    if (bulletRayTime > 0.0f) {
+        bulletRayTime -= 0.02f;  // tweak
+        if (bulletRayTime <= 0.0f) {
+            bulletRayTime = 0.0f;
+            showBulletRay = false;
+        }
+    }
+
+    showBulletRay = true; // for temporary debug: always true
+
+
+
+    // draw bullet ray if active
+    if (showBulletRay && bulletRayTime > 0.0f) {
+        glDisable(GL_LIGHTING);
+        glDisable(GL_TEXTURE_2D);
+
+        glLineWidth(3.0f);
+        glColor3f(1.0f, 0.9f, 0.3f);   // same color as muzzle flash
+
+        glBegin(GL_LINES);
+        glVertex3f(bulletStart.x , bulletStart.y, bulletStart.z);
+        glVertex3f(bulletEnd.x, bulletEnd.y, bulletEnd.z);
+        glEnd();
+
+        glColor3f(1, 1, 1);
+        // glEnable(GL_LIGHTING); // if you had it enabled
     }
 
 
