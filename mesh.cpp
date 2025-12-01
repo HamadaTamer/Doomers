@@ -99,6 +99,8 @@ Mesh loadOBJ(const std::string& path) {
                 }
             }
         }
+
+
     }
 
     std::fclose(f);
@@ -106,8 +108,44 @@ Mesh loadOBJ(const std::string& path) {
     std::cout << "Loaded " << path << " with "
         << mesh.vertexCount() << " vertices\n";
 
+    mesh.computeBounds();
+    std::cout << "Loaded " << path << " with "
+        << mesh.vertexCount() << " vertices. "
+        << "Size: "
+        << (mesh.maxX - mesh.minX) << " x "
+        << (mesh.maxY - mesh.minY) << " x "
+        << (mesh.maxZ - mesh.minZ) << "\n";
+
     return mesh;
 }
+
+void Mesh::computeBounds() {
+    if (vertices.empty()) {
+        hasBounds = false;
+        return;
+    }
+
+    minX = maxX = vertices[0];
+    minY = maxY = vertices[1];
+    minZ = maxZ = vertices[2];
+
+    int n = vertexCount();
+    for (int i = 1; i < n; ++i) {
+        float x = vertices[3 * i + 0];
+        float y = vertices[3 * i + 1];
+        float z = vertices[3 * i + 2];
+
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+        if (z < minZ) minZ = z;
+        if (z > maxZ) maxZ = z;
+    }
+
+    hasBounds = true;
+}
+
 
 void Mesh::draw(bool useTexcoords) const {
     if (vertices.empty()) return;

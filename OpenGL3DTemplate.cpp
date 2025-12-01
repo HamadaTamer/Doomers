@@ -1,4 +1,4 @@
-#include "Mesh.hpp"
+﻿#include "Mesh.hpp"
 #include "Model.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -22,9 +22,25 @@ float camPitch = 0.0f;
 
 
 
+const float cutDiff = 15;
 
 // rotation for testing
 float rotAng = 0.0f;
+
+
+// choose these as globals or consts
+float SCALE_CORRIDOR = 4.0f / 130.8f;   // ~ 0.03
+float SCALE_CRATE = 1.0f / 112.0f;   // ~ 0.009
+float SCALE_GATE = 3.0f / 15.0f;    // ~ 0.20
+float SCALE_GUN = 0.3f / 37.5f;    // ~ 0.008 (gun appears ~30 cm tall on screen)
+float SCALE_HEALTH = 0.4f / 0.37f;    // ~ 1.1  (slightly bigger than source)
+float SCALE_AMMO = 0.4f / 1.40f;    // ~ 0.28
+
+// for army man / zombie (we dont have logs yet, but you can pick)
+float SCALE_PLAYER = 0.01f;
+float SCALE_ZOMBIE = 0.01f;
+
+
 
 // Meshes
 Mesh gunMesh;
@@ -49,15 +65,13 @@ Model playerModel;
 Model zombieModel;
 
 
-
 struct GameObject {
-    enum Type { CRATE, AMMO, HEALTH, ENEMY, PLAYER, GATE } type;
     float x, y, z;
     float sx, sy, sz;
-    float ry;        // rotation around Y
-    Mesh* mesh;     // for corridor, crates, etc.
-    Model* model;    // for soldier, zombie
-    unsigned int texId;
+    float ry;                 
+    Mesh* mesh = nullptr;
+    Model* model = nullptr;
+    unsigned int texId = 0;
 
     void draw() const {
         glPushMatrix();
@@ -77,6 +91,7 @@ struct GameObject {
                 glDisable(GL_TEXTURE_2D);
             }
             else {
+                glDisable(GL_TEXTURE_2D);
                 glColor3f(0.7f, 0.7f, 0.7f);
                 mesh->draw(false);
             }
@@ -86,10 +101,16 @@ struct GameObject {
 };
 
 
+
+
+
+
+std::vector<GameObject> corridorSegments;
 std::vector<GameObject> crates;
-std::vector<GameObject> pickups;  // ammo + health
-std::vector<GameObject> enemies;  // zombies
-GameObject playerObject;
+std::vector<GameObject> pickups;   // health + ammo
+std::vector<GameObject> enemies;   // zombies
+GameObject playerVisual;           // for TPS soldier model
+
 
 
 unsigned int loadTexture(const char* filename) {
@@ -141,7 +162,7 @@ void drawTextured(const Mesh& mesh, unsigned int texId, bool useTex = true) {
 }
 
 void Keyboard(unsigned char key, int x, int y) {
-    float moveStep = 0.2f;
+    float moveStep = 1.0f;
 
     float yawRad = playerYaw * 3.14159265f / 180.0f;
     float forwardX = sinf(yawRad);
@@ -180,7 +201,7 @@ void Keyboard(unsigned char key, int x, int y) {
 
 
 void SpecialKeys(int key, int x, int y) {
-    float angleStep = 2.0f;
+    float angleStep = 10.0f;
 
     switch (key) {
     case GLUT_KEY_LEFT:
@@ -262,92 +283,92 @@ void applyCamera() {
         0.0f, 1.0f, 0.0f);
 }
 
+void drawCorridorWithClip(const GameObject& c, double localCutX) {
+    glPushMatrix();
+
+    glTranslatef(c.x, c.y, c.z);
+    glRotatef(c.ry, 0, 1, 0);
+    glScalef(c.sx, c.sy, c.sz);
+
+    GLdouble eq[4] = { -1.0, 0.0, 0.0, localCutX }; // keep x <= localCutX
+
+    glEnable(GL_CLIP_PLANE0);
+    glClipPlane(GL_CLIP_PLANE0, eq);
+
+    if (c.texId) {
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, c.texId);
+        glColor3f(1, 1, 1);
+        c.mesh->draw(true);
+        glDisable(GL_TEXTURE_2D);
+    }
+    else {
+        glDisable(GL_TEXTURE_2D);
+        glColor3f(0.7f, 0.7f, 0.7f);
+        c.mesh->draw(false);
+    }
+
+    glDisable(GL_CLIP_PLANE0);
+    glPopMatrix();
+}
+
+
 
 
 void Display(void) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    applyCamera();  
+    // 1) World (uses camera)
+    applyCamera();
 
-    gluLookAt(0.0f, 2.0f, 6.0f,
-        0.0f, 1.5f, 0.0f,
-        0.0f, 1.0f, 0.0f);
+    double minX = corridorMesh.minX;
+    double maxX = corridorMesh.maxX;
 
-    //// 1) Corridor (environment base)
-    //glPushMatrix();
-    //glScalef(0.05f, 0.05f, 0.05f);            // corridor is usually huge
-    //glRotatef(rotAng * 10.0f, 0, 1, 0);   // use rotAng here
-    //drawTextured(corridorMesh, corridorTexture);
-    //glPopMatrix();
+    // where we cut the end cap in local space
+    double cutX = maxX - cutDiff;  // or whatever margin you liked
 
-    // 2) Gate at the end of the corridor
-    //glPushMatrix();
-    //glTranslatef(0.0f, 0.0f, -5.0f);          // move along -Z
-    //glScalef(0.01f, 0.01f, 0.01f);
-    //glColor3f(0.3f, 0.6f, 0.9f);              // sci-fi bluish gate
-    //gateMesh.draw(false);
-    //glPopMatrix();
-
-    // 3) A couple of crates as obstacles
-    glPushMatrix();
-    glTranslatef(-1.5f, 0.0f, -2.0f);
-    glScalef(0.005f, 0.005f, 0.005f);
-    drawTextured(crateMesh, crateTexture);
-    glPopMatrix();
-
-    glPushMatrix();
-    glTranslatef(1.5f, 0.0f, -3.5f);
-    glScalef(0.01f, 0.01f, 0.01f);
-    drawTextured(crateMesh, crateTexture);
-    glPopMatrix();
-
-    // 4) Ammo box on top of a crate
-    glPushMatrix();
-    glTranslatef(1.5f, 0.5f, -3.5f);
-    glScalef(0.01f, 0.01f, 0.01f);
-    drawTextured(ammoMesh, ammoTexture);
-    glPopMatrix();
-
-    // 5) Health pack somewhere on the floor
-    glPushMatrix();
-    glTranslatef(-1.0f, 0.0f, -4.5f);
-    glScalef(0.01f, 0.01f, 0.01f);
-    drawTextured(healthMesh, healthTexture);
-    glPopMatrix();
-
-    // 6) Zombie enemy in the corridor
-    // Player (third-person placement)
-    glPushMatrix();
-    glTranslatef(0.0f, 0.0f, 2.0f);   // tweak
-    glScalef(0.015f, 0.015f, 0.015f);     // tweak scale until it looks right
-    playerModel.draw();
-    glPopMatrix();
-
-    // Zombie enemy
-    glPushMatrix();
-    glTranslatef(1.0f, 0.0f, 5.0f);   // in the corridor
-    glScalef(0.015f, 0.015f, 0.015f);
-    glRotatef(180.0f, 0, 1, 0);        // face player
-    zombieModel.draw();
-    glPopMatrix();
+    // this is the local length we KEEP (from minX up to cutX)
+    double keptLenLocal = cutX - minX;
+    for (auto& c : corridorSegments) {
+        drawCorridorWithClip(c, cutX);
+    }
 
 
-    // 7) Player soldier (for third-person view, just test placement)
-   /* glPushMatrix();
-    glTranslatef(0.0f, 0.0f, -3.0f);
-    glScalef(0.01f, 0.01f, 0.01f);
-    soldierModel.draw();
-    glPopMatrix();*/
 
+    //gateObj.draw();
+    //for (auto& c : crates)  c.draw();
+    //for (auto& p : pickups) p.draw();
+    for (auto& e : enemies) e.draw();
 
-    // 8) Gun in front of camera (like FPS weapon)
-    glPushMatrix();
-    // place it slightly in front/right/down of camera
-    glTranslatef(0.4f, -0.6f, 1.0f);
-    glRotatef(rotAng*-10.0f, 0, 1, 0);
-    glScalef(0.01f, 0.01f, 0.01f);
-    drawTextured(gunMesh, gunTexture);
-    glPopMatrix();
+    if (viewMode == VIEW_TPS) {
+        playerVisual.x = playerX;
+        playerVisual.y = playerY;
+        playerVisual.z = playerZ;
+        playerVisual.ry = playerYaw;
+        playerVisual.draw();
+    }
+
+    // 2) Gun as view-model (FPS only)
+    if (viewMode == VIEW_FPS) {
+        glPushMatrix();
+
+        // reset modelview so we are in camera space
+        glLoadIdentity();
+
+        // small offset from camera: right, down, forward
+        glTranslatef(0.3f, -0.3f, -0.8f);
+        glRotatef(5.0f, 0, 1, 0);     // tiny tilt if you like
+
+        glScalef(SCALE_GUN, SCALE_GUN, SCALE_GUN);
+        drawTextured(gunMesh, gunTexture);
+
+        glPopMatrix();
+    }
+
+   /* crates[0].sx = crates[0].sy = crates[0].sz = 0.05f;
+    crates[0].x = 0.0f;
+    crates[0].z = -5.0f;*/
+
 
     glFlush();
 }
@@ -398,6 +419,8 @@ void main(int argc, char** argv) {
     corridorMesh = loadOBJ("assets/sci-fi-corridor-texturing-challenge/source/sci-fi-corridor-texturing-challenge-model/corridor.obj");
     gateMesh = loadOBJ("assets/sci-fi-gate/source/sci fi gate/sci fi gate.obj");
 
+
+
     // load textures
     gunTexture = loadTexture("assets/AR/textures/GAP_Examen_Gun_albedo_DriesDeryckere.tga.png");
     crateTexture = loadTexture("assets/gart130-crate/textures/L_Crate.2fbx_lambert5_BaseColor.png");
@@ -419,6 +442,117 @@ void main(int argc, char** argv) {
         "assets/zombie/source/obj/obj/Zombie001.obj",
         "assets/zombie/source/obj/obj"
     );
+
+
+    
+
+    // Gate at end of corridor, ~25 units away
+   /* gateObj = {
+        0.0f, 0.0f, -25.0f,
+        SCALE_GATE, SCALE_GATE, SCALE_GATE,
+        0.0f,
+        &gateMesh, nullptr,
+        0
+    };*/
+
+    // Two crates as cover
+    crates.push_back({
+        -2.0f, 0.0f, -10.0f,
+        SCALE_CRATE, SCALE_CRATE, SCALE_CRATE,
+        0.0f,
+        &crateMesh, nullptr,
+        crateTexture
+        });
+
+    crates.push_back({
+         2.0f, 0.0f, -12.0f,
+         SCALE_CRATE, SCALE_CRATE, SCALE_CRATE,
+         15.0f,
+         &crateMesh, nullptr,
+         crateTexture
+        });
+
+    // Ammo on top of second crate
+    pickups.push_back({
+        2.0f, 1.0f, -12.0f,           // y ≈ 1 so it sits on crate
+        SCALE_AMMO, SCALE_AMMO, SCALE_AMMO,
+        0.0f,
+        &ammoMesh, nullptr,
+        ammoTexture
+        });
+
+    // Health on the ground near first crate
+    pickups.push_back({
+        -1.5f, 0.0f, -11.5f,
+        SCALE_HEALTH, SCALE_HEALTH, SCALE_HEALTH,
+        0.0f,
+        &healthMesh, nullptr,
+        healthTexture
+        });
+
+    // One zombie in the corridor
+    enemies.push_back({
+        0.5f, 0.0f, -18.0f,
+        SCALE_ZOMBIE, SCALE_ZOMBIE, SCALE_ZOMBIE,
+        180.0f,               // facing player
+        nullptr, &zombieModel,
+        0
+        });
+
+    // TPS player visual
+    playerVisual = {
+        playerX, playerY, playerZ,
+        SCALE_PLAYER, SCALE_PLAYER, SCALE_PLAYER,
+        playerYaw,
+        nullptr, &playerModel,
+        0
+    };
+
+    // keep height ~ 4 units
+    const float RAW_CORRIDOR_HEIGHT = 130.847f;
+    const float RAW_CORRIDOR_LENGTH = 600.581f; // along X
+    const float SCALE_CORRIDOR = 4.0f / RAW_CORRIDOR_HEIGHT; // ~ 0.03
+
+    // after scaling, corridor world length:
+    const float corridorLenWorld = RAW_CORRIDOR_LENGTH * SCALE_CORRIDOR;
+
+
+    double minX = corridorMesh.minX;
+    double maxX = corridorMesh.maxX;
+
+    // where we cut the end cap in local space
+    double cutX = maxX - 2*cutDiff;  // or whatever margin you liked
+
+    // this is the local length we KEEP (from minX up to cutX)
+    double keptLenLocal = cutX - minX;
+
+
+    float stepWorld = (float)(keptLenLocal * SCALE_CORRIDOR);  // distance between segments in world
+
+    // base segment (rotated so the long X axis becomes Z)
+    corridorSegments.clear();
+
+    // base segment
+    GameObject c0;
+    c0.x = 0.0f;
+    c0.y = 0.0f;
+    c0.z = 0.0f;
+    c0.sx = SCALE_CORRIDOR;
+    c0.sy = SCALE_CORRIDOR;
+    c0.sz = SCALE_CORRIDOR;
+    c0.ry = 90.0f;                 // as you had
+    c0.mesh = &corridorMesh;
+    c0.model = nullptr;
+    c0.texId = corridorTexture;
+
+    corridorSegments.push_back(c0);
+
+    // second and third segments, using kept length as step
+    for (int i = 1; i < 3; ++i) {
+        GameObject ci = c0;
+        ci.z = -i * stepWorld;     // minus because corridor goes “forward” in -Z for you
+        corridorSegments.push_back(ci);
+    }
 
 
     glutKeyboardFunc(Keyboard);
