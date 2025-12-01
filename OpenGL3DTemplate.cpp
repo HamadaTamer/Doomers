@@ -21,7 +21,7 @@ float playerVelY = 0.0f;
 bool  isGrounded = true;
 
 const float GRAVITY = -0.3f;  // tweak
-const float JUMP_VELOCITY = 0.6f;   // tweak
+const float JUMP_VELOCITY = 0.61f;   // tweak
 
 // camera pitch (for looking up/down)
 float camPitch = 0.0f;
@@ -50,6 +50,17 @@ const float Z_MIN = 0.0f;   // start point
 const float Z_MAX = 80.0f;  // far end (adjust to your scene)
 
 
+
+int   playerHealth = 100;
+int   playerAmmo = 30;
+int   playerScore = 0;
+
+void drawText(float x, float y, const char* s) {
+    glRasterPos2f(x, y);
+    while (*s) {
+        glutBitmapCharacter(GLUT_BITMAP_8_BY_13, *s++);
+    }
+}
 
 
 
@@ -91,15 +102,27 @@ Model playerModel;
 Model zombieModel;
 
 
+enum PickupType {
+    PICKUP_NONE = -1,
+    PICKUP_HEALTH = 0,
+    PICKUP_AMMO = 1
+};
+
 struct GameObject {
     float x, y, z;
     float sx, sy, sz;
-    float ry;                 
+    float ry;
     Mesh* mesh = nullptr;
     Model* model = nullptr;
     unsigned int texId = 0;
 
+    // extra fields (safe for all uses)
+    PickupType pickupType = PICKUP_NONE;
+    bool collected = false;
+
     void draw() const {
+        if (collected && pickupType != PICKUP_NONE) return; // don't draw collected pickups
+
         glPushMatrix();
         glTranslatef(x, y, z);
         glRotatef(ry, 0, 1, 0);
@@ -131,11 +154,21 @@ struct GameObject {
 
 
 
+
 std::vector<GameObject> corridorSegments;
 std::vector<GameObject> crates;
 std::vector<GameObject> pickups;   // health + ammo
 std::vector<GameObject> enemies;   // zombies
 GameObject playerVisual;           // for TPS soldier model
+
+
+
+struct Pickup {
+    GameObject obj;
+    PickupType type;
+    bool collected = false;
+};
+
 
 
 
@@ -333,7 +366,7 @@ void Keyboard(unsigned char key, int x, int y) {
 
 
 void SpecialKeys(int key, int x, int y) {
-    float angleStep = 45.0f;
+    float angleStep = 20.0f;
 
     switch (key) {
     case GLUT_KEY_LEFT:
@@ -494,10 +527,38 @@ void Display(void) {
 
 
 
-    //gateObj.draw();
-    //for (auto& c : crates)  c.draw();
-    //for (auto& p : pickups) p.draw();
+    for (auto& c : crates)  c.draw();
     for (auto& e : enemies) e.draw();
+
+    for (auto& p : pickups) {
+        if (p.collected || p.pickupType == PICKUP_NONE) continue;
+
+        glPushMatrix();
+        glTranslatef(p.x, p.y, p.z);
+
+        // spin + bob
+        glRotatef(rotAng * 50.0f, 0, 1, 0);
+        glTranslatef(0.0f, 0.1f * sinf(rotAng * 3.0f), 0.0f);
+
+        glScalef(p.sx, p.sy, p.sz);
+
+        if (p.mesh) {
+            if (p.texId) {
+                glEnable(GL_TEXTURE_2D);
+                glBindTexture(GL_TEXTURE_2D, p.texId);
+                glColor3f(1, 1, 1);
+                p.mesh->draw(true);
+                glDisable(GL_TEXTURE_2D);
+            }
+            else {
+                glDisable(GL_TEXTURE_2D);
+                glColor3f(0.7f, 0.7f, 0.7f);
+                p.mesh->draw(false);
+            }
+        }
+        glPopMatrix();
+    }
+
 
     if (viewMode == VIEW_TPS) {
         playerVisual.x = playerX;
@@ -527,12 +588,32 @@ void Display(void) {
         glPopMatrix();
     }
 
+ // --- HUD overlay ---
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    gluOrtho2D(0, 1, 0, 1);  // simple normalized 2D
 
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
 
+    glDisable(GL_LIGHTING);
+    glDisable(GL_DEPTH_TEST);
 
-   /* crates[0].sx = crates[0].sy = crates[0].sz = 0.05f;
-    crates[0].x = 0.0f;
-    crates[0].z = -5.0f;*/
+    char buf[128];
+    snprintf(buf, sizeof(buf), "HP: %d   Ammo: %d   Score: %d", playerHealth, playerAmmo, playerScore);
+    glColor3f(1, 1, 1);
+    drawText(0.05f, 0.95f, buf);
+
+    glEnable(GL_DEPTH_TEST);
+    // glEnable(GL_LIGHTING); // if you had it
+
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+
 
 
     glFlush();
@@ -566,6 +647,30 @@ void Anim() {
             playerY = groundY;   // stick to surface
         }
     }
+
+    // --- pickup logic ---
+    for (auto& p : pickups) {
+        if (p.collected) continue;
+        if (p.pickupType == PICKUP_NONE) continue;
+
+        float dx = playerX - p.x;
+        float dz = playerZ - p.z;
+        float dist2 = dx * dx + dz * dz;
+
+        if (dist2 < 1.0f) { // within 1 unit
+            p.collected = true;
+
+            if (p.pickupType == PICKUP_HEALTH) {
+                playerHealth = std::min(100, playerHealth + 25);
+                playerScore += 10;
+            }
+            else if (p.pickupType == PICKUP_AMMO) {
+                playerAmmo += 15;
+                playerScore += 5;
+            }
+        }
+    }
+
 
     glutPostRedisplay();
 }
@@ -691,23 +796,40 @@ void main(int argc, char** argv) {
 
 
 
-    // Ammo on top of second crate
-    pickups.push_back({
-        2.0f, 1.0f, -12.0f,           // y ≈ 1 so it sits on crate
-        SCALE_AMMO, SCALE_AMMO, SCALE_AMMO,
-        0.0f,
-        &ammoMesh, nullptr,
-        ammoTexture
-        });
+   // Ammo on top of second crate
+    {
+        GameObject ammo;
+        ammo.x = 1.0f;
+        ammo.y = 1.0f;
+        ammo.z = -16.0f;
+        ammo.sx = ammo.sy = ammo.sz = SCALE_AMMO;
+        ammo.ry = 0.0f;
+        ammo.mesh = &ammoMesh;
+        ammo.model = nullptr;
+        ammo.texId = ammoTexture;
+        ammo.pickupType = PICKUP_AMMO;
+        ammo.collected = false;
+
+        pickups.push_back(ammo);
+    }
 
     // Health on the ground near first crate
-    pickups.push_back({
-        -1.5f, 0.0f, -11.5f,
-        SCALE_HEALTH, SCALE_HEALTH, SCALE_HEALTH,
-        0.0f,
-        &healthMesh, nullptr,
-        healthTexture
-        });
+    {
+        GameObject hp;
+        hp.x = 1.0f;
+        hp.y = 0.5f;
+        hp.z = -11.5f;
+        hp.sx = hp.sy = hp.sz = SCALE_HEALTH;
+        hp.ry = 0.0f;
+        hp.mesh = &healthMesh;
+        hp.model = nullptr;
+        hp.texId = healthTexture;
+        hp.pickupType = PICKUP_HEALTH;
+        hp.collected = false;
+
+        pickups.push_back(hp);
+    }
+
 
     // One zombie in the corridor
     enemies.push_back({
