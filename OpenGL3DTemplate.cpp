@@ -55,6 +55,19 @@ int   playerHealth = 100;
 int   playerAmmo = 30;
 int   playerScore = 0;
 
+bool  isFiring = false;  // just for animation if you want
+float gunRecoil = 0.0f;   // degrees
+float gunRecoilDecay = 0.8f;   // how fast it goes back to 0
+float muzzleFlashTime = 0.0f;   // frames or seconds, we’ll just decay it
+
+// Zombie
+int   zombieHealth = 100;
+bool  zombieAlive = true;
+
+// Shooting
+const float SHOOT_RANGE = 50.0f;
+const float ZOMBIE_RADIUS = 1.2f;   // approximate
+
 void drawText(float x, float y, const char* s) {
     glRasterPos2f(x, y);
     while (*s) {
@@ -149,17 +162,107 @@ struct GameObject {
     }
 };
 
-
-
-
-
-
-
 std::vector<GameObject> corridorSegments;
 std::vector<GameObject> crates;
 std::vector<GameObject> pickups;   // health + ammo
 std::vector<GameObject> enemies;   // zombies
 GameObject playerVisual;           // for TPS soldier model
+
+
+struct Vec3 {
+    float x, y, z;
+};
+
+Vec3 makeVec(float x, float y, float z) { return { x,y,z }; }
+
+Vec3 sub(const Vec3& a, const Vec3& b) { return { a.x - b.x, a.y - b.y, a.z - b.z }; }
+
+float dot(const Vec3& a, const Vec3& b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
+
+Vec3 normalize(const Vec3& v) {
+    float len2 = v.x * v.x + v.y * v.y + v.z * v.z;
+    if (len2 <= 1e-6f) return { 0,0,-1 };
+    float inv = 1.0f / sqrtf(len2);
+    return { v.x * inv, v.y * inv, v.z * inv };
+}
+
+
+bool rayHitsZombie(const Vec3& camPos, const Vec3& camDir) {
+    if (!zombieAlive || enemies.empty()) return false;
+
+    const GameObject& z = enemies[0];
+
+    // approximate zombie center height (torso)
+    float zombieCenterY = z.y + 1.0f;  // tweak
+
+    Vec3 center = makeVec(z.x, zombieCenterY, z.z);
+    Vec3 oc = sub(center, camPos);
+
+    float t = dot(oc, camDir);
+    if (t < 0.0f || t > SHOOT_RANGE) return false;
+
+    // closest point on ray to center
+    Vec3 closest = {
+        camPos.x + camDir.x * t,
+        camPos.y + camDir.y * t,
+        camPos.z + camDir.z * t
+    };
+    Vec3 diff = sub(center, closest);
+    float dist2 = dot(diff, diff);
+
+    return dist2 <= (ZOMBIE_RADIUS * ZOMBIE_RADIUS);
+}
+
+
+
+void getCameraRay(Vec3& camPos, Vec3& camDir) {
+    // base position is player pos + eye height
+    float eyeHeight = 1.6f; // your player "eyes"
+    float camX = playerX;
+    float camY = playerY + eyeHeight;
+    float camZ = playerZ;
+
+    // yaw / pitch in radians
+    float yawRad = playerYaw * 3.14159265f / 180.0f;
+    float pitchRad = camPitch * 3.14159265f / 180.0f;
+
+    // forward vector from yaw, pitch
+    float fx = cosf(pitchRad) * sinf(yawRad);
+    float fy = sinf(pitchRad);
+    float fz = -cosf(pitchRad) * cosf(yawRad);   // consistent with -Z forward
+
+    camPos = makeVec(camX, camY, camZ);
+    camDir = normalize(makeVec(fx, fy, fz));
+}
+
+
+void tryShoot() {
+    if (playerAmmo <= 0) {
+        // out of ammo, maybe play dry click later
+        return;
+    }
+
+    playerAmmo--;
+    isFiring = true;
+    gunRecoil = 8.0f;  // degrees up
+    muzzleFlashTime = 0.1f;  // small flash time
+
+    Vec3 camPos, camDir;
+    getCameraRay(camPos, camDir);
+
+    if (rayHitsZombie(camPos, camDir)) {
+        zombieHealth -= 34;   // 3 hits to kill
+        playerScore += 20;
+
+        if (zombieHealth <= 0) {
+            zombieAlive = false;
+            playerScore += 50; // kill bonus
+        }
+    }
+}
+
+
+
 
 
 
@@ -390,19 +493,18 @@ void SpecialKeys(int key, int x, int y) {
 
 
 void Mouse(int button, int state, int x, int y) {
-    if (state != GLUT_DOWN) return;
-
-    if (button == GLUT_RIGHT_BUTTON) {
-        if (viewMode == VIEW_FPS) viewMode = VIEW_TPS;
-        else                      viewMode = VIEW_FPS;
+    if (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN) {
+        viewMode = (viewMode == VIEW_FPS) ? VIEW_TPS : VIEW_FPS;
     }
 
-    if (button == GLUT_LEFT_BUTTON) {
-        // TODO: shooting logic
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+        // only shoot in FPS (up to you)
+        if (viewMode == VIEW_FPS) {
+            tryShoot();
+        }
     }
-
-    glutPostRedisplay();
 }
+
 
 void drawSimpleHands() {
     glDisable(GL_TEXTURE_2D);      // just solid color
@@ -528,7 +630,9 @@ void Display(void) {
 
 
     for (auto& c : crates)  c.draw();
-    for (auto& e : enemies) e.draw();
+    if (zombieAlive && !enemies.empty()) {
+        enemies[0].draw();
+    }
 
     for (auto& p : pickups) {
         if (p.collected || p.pickupType == PICKUP_NONE) continue;
@@ -584,6 +688,46 @@ void Display(void) {
 
         // simple arms under same transform
         drawSimpleHands();
+        if (viewMode == VIEW_FPS) {
+            glPushMatrix();
+            glLoadIdentity();
+
+            glTranslatef(0.05f, -0.18f, -0.75f);
+
+            // recoil (pitch up)
+            glRotatef(gunRecoil, 1, 0, 0);
+
+            glRotatef(180.0f, 0, 1, 0);
+            glRotatef(5.0f, 0, 1, 0);
+
+            // 1) hands
+            drawSimpleHands();
+
+            // 2) gun
+            glPushMatrix();
+            glScalef(SCALE_GUN, SCALE_GUN, SCALE_GUN);
+            drawTextured(gunMesh, gunTexture);
+            glPopMatrix();
+
+            // 3) simple muzzle flash (little glowing quad) when shooting
+            if (muzzleFlashTime > 0.0f) {
+                glDisable(GL_TEXTURE_2D);
+                glColor3f(1.0f, 0.9f, 0.3f);  // bright yellowish
+
+                glPushMatrix();
+                // position at gun barrel roughly (tweak)
+                glTranslatef(0.0f, 0.0f, -0.5f);
+                glScalef(0.05f, 0.05f, 0.05f);
+                glutSolidSphere(1.0f, 8, 8);  // little glowing ball
+                glPopMatrix();
+
+                glColor3f(1, 1, 1);
+            }
+
+            glPopMatrix();
+        }
+
+
 
         glPopMatrix();
     }
@@ -669,6 +813,19 @@ void Anim() {
                 playerScore += 5;
             }
         }
+    }
+
+
+    // recoil decay
+    if (gunRecoil > 0.0f) {
+        gunRecoil *= gunRecoilDecay;   // exponential decay
+        if (gunRecoil < 0.1f) gunRecoil = 0.0f;
+    }
+
+    // muzzle flash time decay
+    if (muzzleFlashTime > 0.0f) {
+        muzzleFlashTime -= 0.02f;  // tweak based on your frame rate
+        if (muzzleFlashTime < 0.0f) muzzleFlashTime = 0.0f;
     }
 
 
@@ -811,7 +968,7 @@ void main(int argc, char** argv) {
         ammo.collected = false;
 
         pickups.push_back(ammo);
-    }
+    } 
 
     // Health on the ground near first crate
     {
