@@ -21,11 +21,19 @@ float playerYaw = 0.0f; // degrees
 float camPitch = 0.0f;
 
 
+const float MOVE_SPEED = 0.3f;
 
-const float cutDiff = 15;
+const float cutDiff = 40;
 
 // rotation for testing
 float rotAng = 0.0f;
+
+const float PLAYER_R = 0.7f;       // player “radius”
+const float CORRIDOR_HALF_WIDTH = 1.8f;   // tweak until it feels right
+const float Z_MIN = -60.0f;        // far end of corridor
+const float Z_MAX = 2.0f;         // don’t go behind start
+
+
 
 
 // choose these as globals or consts
@@ -113,6 +121,71 @@ GameObject playerVisual;           // for TPS soldier model
 
 
 
+// initial collisions structs
+
+struct AABB {
+    float minX, maxX;
+    float minY, maxY;
+    float minZ, maxZ;
+};
+
+std::vector<AABB> worldColliders;
+
+
+
+bool pointInsideAABB(float x, float y, float z, const AABB& b) {
+    return (x >= b.minX && x <= b.maxX &&
+        y >= b.minY && y <= b.maxY &&
+        z >= b.minZ && z <= b.maxZ);
+}
+
+
+bool circleIntersectsAABB(float px, float pz, float radius, const AABB& b) {
+    // clamp circle center to box
+    float cx = std::max(b.minX, std::min(px, b.maxX));
+    float cz = std::max(b.minZ, std::min(pz, b.maxZ));
+
+    float dx = px - cx;
+    float dz = pz - cz;
+    return (dx * dx + dz * dz) < (radius * radius);
+}
+
+bool collidesWithWalls(float newX, float newZ) {
+    // left wall
+    if (newX - PLAYER_R < -CORRIDOR_HALF_WIDTH) return true;
+    // right wall
+    if (newX + PLAYER_R > CORRIDOR_HALF_WIDTH) return true;
+
+    // front limit (far end)
+    if (newZ - PLAYER_R < Z_MIN) return true;
+    // back limit (behind player spawn)
+    if (newZ + PLAYER_R > Z_MAX) return true;
+
+    return false;
+}
+
+
+bool canMoveTo(float newX, float newZ) {
+    // 1) walls / corridor limits
+    if (collidesWithWalls(newX, newZ)) {
+        return false;
+    }
+
+    // 2) crates (and later: zombies, gate, etc.)
+    for (const auto& box : worldColliders) {
+        if (circleIntersectsAABB(newX, newZ, PLAYER_R, box)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
+
+
+
+
 unsigned int loadTexture(const char* filename) {
     int w, h, ch;
     unsigned char* data = stbi_load(filename, &w, &h, &ch, 0);
@@ -161,47 +234,37 @@ void drawTextured(const Mesh& mesh, unsigned int texId, bool useTex = true) {
     }
 }
 
-void Keyboard(unsigned char key, int x, int y) {
-    float moveStep = 1.0f;
 
+void movePlayer(float forwardDelta, float rightDelta) {
     float yawRad = playerYaw * 3.14159265f / 180.0f;
-    float forwardX = sinf(yawRad);
-    float forwardZ = -cosf(yawRad);
+
+    float dirX = sinf(yawRad);
+    float dirZ = -cosf(yawRad);
     float rightX = cosf(yawRad);
     float rightZ = sinf(yawRad);
 
-    switch (key) {
-    case 'w':
-    case 'W':
-        playerX += forwardX * moveStep;
-        playerZ += forwardZ * moveStep;
-        break;
-    case 's':
-    case 'S':
-        playerX -= forwardX * moveStep;
-        playerZ -= forwardZ * moveStep;
-        break;
-    case 'a':
-    case 'A':
-        playerX -= rightX * moveStep;
-        playerZ -= rightZ * moveStep;
-        break;
-    case 'd':
-    case 'D':
-        playerX += rightX * moveStep;
-        playerZ += rightZ * moveStep;
-        break;
-    case 27: // ESC
-        exit(0);
-        break;
-    }
+    float newX = playerX + dirX * forwardDelta + rightX * rightDelta;
+    float newZ = playerZ + dirZ * forwardDelta + rightZ * rightDelta;
 
-    glutPostRedisplay();
+    if (canMoveTo(newX, newZ)) {
+        playerX = newX;
+        playerZ = newZ;
+    }
+}
+
+
+void Keyboard(unsigned char key, int x, int y) {
+    switch (key) {
+    case 'w': case 'W': movePlayer(MOVE_SPEED, 0.0f); break;
+    case 's': case 'S': movePlayer(-MOVE_SPEED, 0.0f); break;
+    case 'a': case 'A': movePlayer(0.0f, -MOVE_SPEED); break;
+    case 'd': case 'D': movePlayer(0.0f, MOVE_SPEED); break;
+    }
 }
 
 
 void SpecialKeys(int key, int x, int y) {
-    float angleStep = 10.0f;
+    float angleStep = 45.0f;
 
     switch (key) {
     case GLUT_KEY_LEFT:
@@ -238,6 +301,33 @@ void Mouse(int button, int state, int x, int y) {
 
     glutPostRedisplay();
 }
+
+void drawSimpleHands() {
+    glDisable(GL_TEXTURE_2D);      // just solid color
+    glColor3f(0.8f, 0.7f, 0.6f);   // skin-ish
+
+    // Right forearm
+    glPushMatrix();
+    glTranslatef(0.20f, -0.05f, -0.25f);  // tweak these
+    glScalef(0.20f, 0.10f, 0.45f);        // length, thickness
+    glutSolidCube(1.0f);
+    glPopMatrix();
+
+    // Left forearm
+    glPushMatrix();
+    glTranslatef(-0.10f, -0.05f, -0.20f);
+    glScalef(0.18f, 0.10f, 0.40f);
+    glutSolidCube(1.0f);
+    glPopMatrix();
+
+    // (Optional: small block as “hand grip” on the gun)
+    glPushMatrix();
+    glTranslatef(0.05f, -0.02f, -0.32f);
+    glScalef(0.10f, 0.08f, 0.12f);
+    glutSolidCube(1.0f);
+    glPopMatrix();
+}
+
 
 
 void applyCamera() {
@@ -344,26 +434,32 @@ void Display(void) {
         playerVisual.x = playerX;
         playerVisual.y = playerY;
         playerVisual.z = playerZ;
-        playerVisual.ry = playerYaw;
+        playerVisual.ry = playerYaw + 180.0f;
         playerVisual.draw();
     }
 
     // 2) Gun as view-model (FPS only)
+    
     if (viewMode == VIEW_FPS) {
         glPushMatrix();
-
-        // reset modelview so we are in camera space
         glLoadIdentity();
 
-        // small offset from camera: right, down, forward
-        glTranslatef(0.3f, -0.3f, -0.8f);
-        glRotatef(5.0f, 0, 1, 0);     // tiny tilt if you like
-
+        glTranslatef(0.05f, -0.18f, -0.75f);
+        glRotatef(180.0f, 0, 1, 0);
+        glRotatef(5.0f, 0, 1, 0);
         glScalef(SCALE_GUN, SCALE_GUN, SCALE_GUN);
+
+        // gun
         drawTextured(gunMesh, gunTexture);
+
+        // simple arms under same transform
+        drawSimpleHands();
 
         glPopMatrix();
     }
+
+
+
 
    /* crates[0].sx = crates[0].sy = crates[0].sz = 0.05f;
     crates[0].x = 0.0f;
@@ -456,21 +552,47 @@ void main(int argc, char** argv) {
     };*/
 
     // Two crates as cover
+    // crate 1 at (-2.0, 0, -8.0)
     crates.push_back({
-        -2.0f, 0.0f, -10.0f,
+        -2.0f, 0.0f, -8.0f,
         SCALE_CRATE, SCALE_CRATE, SCALE_CRATE,
         0.0f,
         &crateMesh, nullptr,
         crateTexture
         });
+    {
+        auto& c = crates.back();
+        float hw = 1.0f;  // half-width (tweak)
+        float hd = 1.0f;  // half-depth
 
+        worldColliders.push_back({
+            c.x - hw, c.x + hw,
+            c.z - hd, c.z + hd
+            });
+    }
+
+    // crate 2 at (2.0, 0, -12.0)
     crates.push_back({
-         2.0f, 0.0f, -12.0f,
-         SCALE_CRATE, SCALE_CRATE, SCALE_CRATE,
-         15.0f,
-         &crateMesh, nullptr,
-         crateTexture
+        2.0f, 0.0f, -12.0f,
+        SCALE_CRATE, SCALE_CRATE, SCALE_CRATE,
+        15.0f,
+        &crateMesh, nullptr,
+        crateTexture
         });
+    {
+        auto& c = crates.back();
+        float hw = 1.0f;
+        float hd = 1.0f;
+
+        worldColliders.push_back({
+            c.x - hw, c.x + hw,
+            c.z - hd, c.z + hd
+            });
+    }
+
+
+
+
 
     // Ammo on top of second crate
     pickups.push_back({
@@ -508,6 +630,22 @@ void main(int argc, char** argv) {
         0
     };
 
+
+
+    // left wall: everything with x <= -2.5 is blocked
+    worldColliders.push_back({
+        -1000.0f, -30.0f,
+        -1000.0f,  1000.0f
+        });
+
+    // right wall: everything with x >= 2.5 is blocked
+    worldColliders.push_back({
+         30.0f,  1000.0f,
+        -1000.0f, 1000.0f
+        });
+
+   
+
     // keep height ~ 4 units
     const float RAW_CORRIDOR_HEIGHT = 130.847f;
     const float RAW_CORRIDOR_LENGTH = 600.581f; // along X
@@ -534,7 +672,7 @@ void main(int argc, char** argv) {
 
     // base segment
     GameObject c0;
-    c0.x = 0.0f;
+    c0.x = -0.2f;
     c0.y = 0.0f;
     c0.z = 0.0f;
     c0.sx = SCALE_CORRIDOR;
