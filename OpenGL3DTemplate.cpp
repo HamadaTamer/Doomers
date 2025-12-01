@@ -3,7 +3,7 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
-
+#include <iostream>
 #include <cmath>
 #include <glut.h>
 
@@ -17,6 +17,12 @@ float playerY = 0.0f;   // feet on ground
 float playerZ = 0.0f;
 float playerYaw = 0.0f; // degrees
 
+float playerVelY = 0.0f;
+bool  isGrounded = true;
+
+const float GRAVITY = -0.3f;  // tweak
+const float JUMP_VELOCITY = 0.6f;   // tweak
+
 // camera pitch (for looking up/down)
 float camPitch = 0.0f;
 
@@ -28,10 +34,22 @@ const float cutDiff = 40;
 // rotation for testing
 float rotAng = 0.0f;
 
-const float PLAYER_R = 0.7f;       // player “radius”
-const float CORRIDOR_HALF_WIDTH = 1.8f;   // tweak until it feels right
-const float Z_MIN = -60.0f;        // far end of corridor
-const float Z_MAX = 2.0f;         // don’t go behind start
+
+const float PLAYER_R = 0.4f;   // collision radius
+const float CORRIDOR_HALF_WIDTH = 1.8f;   // corridor lane: x in [-1.8, 1.8]
+
+const float Z_FRONT_LIMIT = -80.0f;  // far end (more negative)
+const float Z_BACK_LIMIT = 5.0f;   // behind start (positive)
+
+const float JUMP_OVER_HEIGHT = 0.4f; // if playerY >= this, crates no longer block
+
+const float CRATE_HEIGHT = 1.2f;       // how high the crates are
+const float STEP_EPS = 0.1f;       // how much higher you must be to step up
+
+const float Z_MIN = 0.0f;   // start point
+const float Z_MAX = 80.0f;  // far end (adjust to your scene)
+
+
 
 
 
@@ -150,6 +168,25 @@ bool circleIntersectsAABB(float px, float pz, float radius, const AABB& b) {
     return (dx * dx + dz * dz) < (radius * radius);
 }
 
+bool inCrateZone(float z) {
+    // crates baked into corridor, roughly these Z intervals (negative because forward = -Z)
+    if (z < -11.0f && z > -14.0f)   return true;  // block 1
+    if (z < -27.0f && z > -29.5f)   return true;  // block 2
+    if (z < -42.0f && z > -50.0f)   return true;  // block 3 (tweak end)
+
+    return false;
+}
+
+float getGroundHeightAt(float x, float z) {
+    // only in the lane, crates form a raised floor
+    if (fabs(x) < CORRIDOR_HALF_WIDTH && inCrateZone(z)) {
+        return CRATE_HEIGHT;
+    }
+    // default floor
+    return 0.0f;
+}
+
+
 bool collidesWithWalls(float newX, float newZ) {
     // left wall
     if (newX - PLAYER_R < -CORRIDOR_HALF_WIDTH) return true;
@@ -165,21 +202,41 @@ bool collidesWithWalls(float newX, float newZ) {
 }
 
 
+
 bool canMoveTo(float newX, float newZ) {
-    // 1) walls / corridor limits
-    if (collidesWithWalls(newX, newZ)) {
-        return false;
+    // 1) corridor walls in X
+    if (newX - PLAYER_R < -CORRIDOR_HALF_WIDTH) return false;
+    if (newX + PLAYER_R > CORRIDOR_HALF_WIDTH) return false;
+
+    // 2) corridor limits in Z
+    if (newZ - PLAYER_R < Z_FRONT_LIMIT) return false; // too far forward (-Z)
+    if (newZ + PLAYER_R > Z_BACK_LIMIT)  return false; // too far back
+
+    // 3) stepping logic: compare current vs next ground height
+    float currentGround = getGroundHeightAt(playerX, playerZ);
+    float nextGround = getGroundHeightAt(newX, newZ);
+
+    // going DOWN is always fine (fall or step down)
+    if (nextGround <= currentGround) {
+        return true;
     }
 
-    // 2) crates (and later: zombies, gate, etc.)
-    for (const auto& box : worldColliders) {
-        if (circleIntersectsAABB(newX, newZ, PLAYER_R, box)) {
-            return false;
-        }
+    // going UP: require that your body is already high enough to clear the step
+    // i.e., you have jumped. If you're basically still at current ground,
+    // block the movement so you "bump" into the crate.
+    float requiredHeightToStep = currentGround + CRATE_HEIGHT * 0.5f; // or currentGround + STEP_EPS;
+
+    if (playerY <= requiredHeightToStep) {
+        return false; // not high enough to get onto crate
     }
 
+    // in the air and high enough -> allow, you'll land on top via Anim()
     return true;
 }
+
+
+
+
 
 
 
@@ -235,11 +292,12 @@ void drawTextured(const Mesh& mesh, unsigned int texId, bool useTex = true) {
 }
 
 
+
 void movePlayer(float forwardDelta, float rightDelta) {
     float yawRad = playerYaw * 3.14159265f / 180.0f;
 
     float dirX = sinf(yawRad);
-    float dirZ = -cosf(yawRad);
+    float dirZ = -cosf(yawRad);  // forward is -Z
     float rightX = cosf(yawRad);
     float rightZ = sinf(yawRad);
 
@@ -253,12 +311,23 @@ void movePlayer(float forwardDelta, float rightDelta) {
 }
 
 
+
+
+
 void Keyboard(unsigned char key, int x, int y) {
     switch (key) {
     case 'w': case 'W': movePlayer(MOVE_SPEED, 0.0f); break;
     case 's': case 'S': movePlayer(-MOVE_SPEED, 0.0f); break;
     case 'a': case 'A': movePlayer(0.0f, -MOVE_SPEED); break;
     case 'd': case 'D': movePlayer(0.0f, MOVE_SPEED); break;
+
+    case ' ':
+    if (isGrounded) {
+        isGrounded = false;
+        playerVelY = JUMP_VELOCITY;
+    }
+    break;
+
     }
 }
 
@@ -471,9 +540,37 @@ void Display(void) {
 
 
 void Anim() {
+    // other stuff like rotAng, animations...
     rotAng += 0.01f;
+
+    // --- vertical motion ---
+    float groundY = getGroundHeightAt(playerX, playerZ);
+
+    if (!isGrounded) {
+        playerY += playerVelY;
+        playerVelY += GRAVITY;
+
+        // did we hit the ground (floor or crate top)?
+        if (playerY <= groundY) {
+            playerY = groundY;
+            playerVelY = 0.0f;
+            isGrounded = true;
+        }
+    }
+    else {
+        // just to be safe: if ground moved (e.g. walked off a crate)
+        if (playerY > groundY + 0.01f) {
+            isGrounded = false;  // start falling
+        }
+        else {
+            playerY = groundY;   // stick to surface
+        }
+    }
+
     glutPostRedisplay();
 }
+
+
 
 void main(int argc, char** argv) {
     glutInit(&argc, argv);
@@ -643,6 +740,8 @@ void main(int argc, char** argv) {
          30.0f,  1000.0f,
         -1000.0f, 1000.0f
         });
+
+
 
    
 
