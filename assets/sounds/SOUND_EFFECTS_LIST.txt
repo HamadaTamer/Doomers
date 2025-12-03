@@ -1,0 +1,359 @@
+========================================================================
+WEAPONS
+========================================================================
+pistol_fire.wav — 0.3s
+
+Prompt:
+“Sharp, punchy handgun gunshot. High-pressure muzzle blast, short recoil snap, tight mechanical slide movement, minimal echo, modern 9mm pistol.”
+
+rifle_fire.wav — 0.2s
+
+Prompt:
+“Fast assault rifle burst. Metallic automatic firing, tight staccato shots, minimal reverb, high-velocity crack, modern military rifle.”
+
+shotgun_fire.wav — 0.5s
+
+Prompt:
+“Deep booming pump-action shotgun blast. Heavy low-end thump, wide air pressure shockwave, metallic pump click, harsh echo tail.”
+
+weapon_reload.wav — 1.5s
+
+Prompt:
+“Magazine reload sound. Metallic magazine insertion, sharp click, slide rack, mechanical clatter, realistic soldier reload.”
+
+weapon_empty.wav — 0.2s
+
+Prompt:
+“Dry fire empty chamber click. Clean metallic trigger click, no bullet discharge, crisp mechanical snap.”
+
+bullet_impact.wav — 0.2s
+
+Prompt:
+“High-speed bullet hitting concrete or metal. Sharp crack, debris scattering, metallic ping.”
+
+bullet_whiz.wav — 0.3s
+
+Prompt:
+“Supersonic bullet whizzing past. Doppler effect whoosh, high-pitched air rip, fast glide by the listener.”
+
+========================================================================
+PLAYER
+========================================================================
+footstep_concrete1.wav — 0.2s
+
+Prompt:
+“Heavy boot stepping on concrete floor. Short thud, slight scrape, realistic echo.”
+
+footstep_concrete2.wav — 0.2s
+
+Prompt:
+“Footstep on concrete variant. Different pitch, subtle boot impact, minimal reverb.”
+
+footstep_concrete3.wav — 0.2s
+
+Prompt:
+“Concrete bootstep variation. Slightly sharper tone, small grit crunch.”
+
+footstep_metal1.wav — 0.2s
+
+Prompt:
+“Footstep on metal grating. Metallic clang, hollow resonance, boot impact.”
+
+footstep_metal2.wav — 0.2s
+
+Prompt:
+“Metal footstep variation. Higher pitch metal ring, shorter echo, industrial walkway.”
+
+player_jump.wav — 0.3s
+
+Prompt:
+“Player jumping exertion sound. Short grunt, light whoosh of air displacement.”
+
+player_land.wav — 0.3s
+
+Prompt:
+“Heavy landing impact. Solid thud, armor or gear rattle, breath exhale.”
+
+player_hurt1.wav — 0.4s
+
+Prompt:
+“Light damage male pain grunt. Short, sharp vocal exhale of pain.”
+
+player_hurt2.wav — 0.5s
+
+Prompt:
+“Heavy damage male pain yell. Intense strained vocalization.”
+
+player_death.wav — 1.0s
+
+Prompt:
+“Player death sound. Final gasp, collapse to ground, fading breath.”
+
+player_breath.wav — 2.0s
+
+Prompt:
+“Loopable heavy breathing from sprinting. Labored inhale and exhale, slight fatigue.”
+
+========================================================================
+ENEMIES – ZOMBIE
+========================================================================
+zombie_moan1.wav — 2.0s
+
+Prompt:
+“Slow guttural zombie moan. Deep throat sound, wet rasp, undead groaning.”
+
+zombie_moan2.wav — 1.5s
+
+Prompt:
+“Zombie moan variation. Higher pitch, ragged breathing, decayed vocal texture.”
+
+zombie_moan3.wav — 2.5s
+
+Prompt:
+“Long eerie zombie moan. Echoing undead cry, unsettling, distant agony.”
+
+zombie_alert.wav — 1.0s
+
+Prompt:
+“Zombie spotting the player. Aggressive snarl, sharp screech, sudden hostile roar.”
+
+zombie_attack.wav — 0.5s
+
+Prompt:
+“Zombie melee attack. Claw swipe, bite lunge sound, snarling breath.”
+
+zombie_hurt.wav — 0.4s
+
+Prompt:
+“Zombie taking damage. Wet grunt, painful groan, angry snarl.”
+
+zombie_death.wav — 1.5s
+
+Prompt:
+“Zombie dying. Sickening death rattle, collapsing body, fading groans.”
+
+========================================================================
+ENEMIES – DEMON
+========================================================================
+demon_roar.wav — 1.5s
+
+Prompt:
+“Massive demonic roar. Deep monstrous vocal, reverberating growl, supernatural power.”
+
+demon_growl.wav — 2.0s
+
+Prompt:
+“Idle demon growl. Low rumbling throat vibration, hellish resonance.”
+
+demon_attack.wav — 0.6s
+
+Prompt:
+“Demon melee attack. Sharp claw swipe, angry screech, supernatural strength.”
+
+demon_hurt.wav — 0.5s
+
+Prompt:
+“Demon pain reaction. Deep guttural cry, distorted anger, crackling energy.”
+
+demon_death.wav — 2.0s
+
+Prompt:
+“Demon dying. Explosive burst, fiery roar, collapsing body with echo.”
+
+========================================================================
+ENEMIES – BOSS
+========================================================================
+boss_intro.wav — 3.0s
+
+Prompt:
+“Epic boss entrance sound. Thunderous ambience, heavy footsteps, dramatic reveal.”
+
+boss_roar.wav — 2.0s
+
+Prompt:
+“Massive boss roar. Extremely powerful, earth-shaking, intimidating monster scream.”
+
+boss_attack.wav — 1.0s
+
+Prompt:
+“Boss heavy attack. Ground-shaking impact, wind pressure rush, giant arm slam.”
+
+boss_hurt.wav — 0.8s
+
+Prompt:
+“Boss taking damage. Deep enraged groan, massive creature pain, echoing roar.”
+
+boss_death.wav — 4.0s
+
+Prompt:
+“Dramatic boss death. Explosive collapse, monstrous scream, long echo tail.”
+
+========================================================================
+PICKUPS
+========================================================================
+pickup_health.wav — 0.5s
+
+Prompt:
+“Positive healing pickup sound. Bright chime, soft magical shimmer.”
+
+pickup_ammo.wav — 0.4s
+
+Prompt:
+“Ammo pickup. Metallic click, chamber reload sound, quick confirmation effect.”
+
+pickup_weapon.wav — 0.8s
+
+Prompt:
+“New weapon acquired. Epic rising tone, metallic gear sound, satisfying reward cue.”
+
+pickup_key.wav — 0.5s
+
+Prompt:
+“Keycard pickup. Electronic beep, soft sci-fi confirmation tone.”
+
+========================================================================
+ENVIRONMENT
+========================================================================
+door_open.wav — 1.0s
+
+Prompt:
+“Sliding door opening. Mechanical servo whir, pneumatic hiss, smooth metal movement.”
+
+door_close.wav — 1.0s
+
+Prompt:
+“Door closing. Sliding metal shutting, final clunk, locking relay click.”
+
+door_locked.wav — 0.5s
+
+Prompt:
+“Locked door attempt. Denied buzzer, mechanical click, short rejection tone.”
+
+elevator_move.wav — 3.0s
+
+Prompt:
+“Loopable elevator movement. Mechanical humming, cable tension, soft cabin vibration.”
+
+elevator_ding.wav — 0.5s
+
+Prompt:
+“Elevator arrival ding. Soft chime bell, clean, pleasant tone.”
+
+switch_activate.wav — 0.3s
+
+Prompt:
+“Switch/button activation. Mechanical click, subtle energy hum.”
+
+explosion_small.wav — 1.0s
+
+Prompt:
+“Small explosion. Quick blast, debris scatter, light echo.”
+
+explosion_large.wav — 2.0s
+
+Prompt:
+“Large explosion. Massive boom, shockwave, falling debris, long echo.”
+
+glass_break.wav — 0.8s
+
+Prompt:
+“Glass shattering. Sharp high-pitched break, scattering shards.”
+
+alarm_loop.wav — 2.0s
+
+Prompt:
+“Loopable alarm siren. Industrial klaxon, rising and falling tone.”
+
+========================================================================
+AMBIENT
+========================================================================
+ambient_facility.wav — 30s
+
+Prompt:
+“Loopable research facility ambience. Low industrial hum, distant metal clanks, faint machinery, deep atmospheric drone.”
+
+ambient_arena.wav — 30s
+
+Prompt:
+“Hell arena ambience. Fire crackling, distant tortured screams, wind gusts, deep rumbling, eerie background.”
+
+ambient_vent.wav — 10s
+
+Prompt:
+“Loopable ventilation noise. Constant airflow rush, low rumble, mechanical fan.”
+
+ambient_electricity.wav — 5s
+
+Prompt:
+“Electrical hum. High-frequency buzz, transformer hum, soft crackles.”
+
+ambient_drip.wav — 3s
+
+Prompt:
+“Water dripping ambience. Occasional droplets, subtle echo, dark environment.”
+
+========================================================================
+UI SOUNDS
+========================================================================
+ui_hover.wav — 0.1s
+
+Prompt:
+“UI hover tick. Subtle digital blip, soft click.”
+
+ui_select.wav — 0.2s
+
+Prompt:
+“UI confirm click. Clean, satisfying selection sound.”
+
+ui_back.wav — 0.2s
+
+Prompt:
+“UI back/cancel. Soft downward tone, subtle reject click.”
+
+ui_error.wav — 0.3s
+
+Prompt:
+“UI error. Sharp electronic buzzer, short negative tone.”
+
+ui_pause.wav — 0.3s
+
+Prompt:
+“Pause sound. Soft whoosh, subtle UI swell effect.”
+
+ui_unpause.wav — 0.3s
+
+Prompt:
+“Resume sound. Light reverse-whoosh, positive return tone.”
+
+========================================================================
+MUSIC TRACKS (Ambient + Action)
+========================================================================
+music_menu.wav — 120s
+
+Prompt:
+“Ominous ambient menu theme. Dark drones, low synth pads, subtle mechanical noises, slow tension buildup, loopable.”
+
+music_level1.wav — 180s
+
+Prompt:
+“Tense industrial action music. Heavy percussion, metallic hits, dark synths, fast rhythm, loopable.”
+
+music_level2.wav — 180s
+
+Prompt:
+“Aggressive metal combat track. Distorted guitars, fast drums, deep bass, adrenaline-driving battle music, loopable.”
+
+music_boss.wav — 120s
+
+Prompt:
+“Epic intense boss fight track. Heavy drums, pounding rhythm, dark orchestral elements, rising tension, loopable.”
+
+music_victory.wav — 15s
+
+Prompt:
+“Triumphant victory fanfare. Bright brass, uplifting melody, short heroic celebration.”
+
+music_gameover.wav — 10s
+
+Prompt:
+“Somber game-over theme. Slow minor-key pads, deep bass drone, emotional defeat tone.”
