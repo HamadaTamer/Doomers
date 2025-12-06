@@ -9,6 +9,16 @@
 #include <stdio.h>
 #include "src/Game.h"
 
+// ============================================================================
+// FORCE DEDICATED GPU (NVIDIA/AMD) - This tells Windows to use your gaming GPU
+// ============================================================================
+extern "C" {
+    // For NVIDIA GPUs - forces high performance GPU
+    __declspec(dllexport) unsigned long NvOptimusEnablement = 0x00000001;
+    // For AMD GPUs - forces high performance GPU
+    __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
+
 // Debug file
 FILE* g_debugFile = NULL;
 

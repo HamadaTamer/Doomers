@@ -168,6 +168,28 @@ namespace LowPolyModels {
     
     // -------------------- LEVEL GEOMETRY --------------------
     
+    // OPTIMIZED: Simple floor tile for better FPS (fewer draw calls)
+    inline void drawFloorTileSimple(float x, float z, float size) {
+        glPushMatrix();
+        glTranslatef(x, 0, z);
+        
+        // Single base plate - no extra details
+        int tileVariant = ((int)(x * 7 + z * 13)) % 3;
+        float colorVar = 0.95f + (tileVariant * 0.015f);
+        setColorMetallic(0.22f * colorVar, 0.24f * colorVar, 0.28f * colorVar);
+        drawBox(size, 0.08f, size);
+        
+        // Just simple grid lines
+        setColorMetallic(0.18f, 0.2f, 0.24f);
+        glPushMatrix();
+        glTranslatef(0, 0.05f, 0);
+        drawBox(size * 0.9f, 0.01f, 0.03f);
+        drawBox(0.03f, 0.01f, size * 0.9f);
+        glPopMatrix();
+        
+        glPopMatrix();
+    }
+    
     // Draw an ENHANCED sci-fi floor tile with detailed texturing
     inline void drawFloorTile(float x, float z, float size) {
         glPushMatrix();
@@ -304,7 +326,124 @@ namespace LowPolyModels {
     }
     
     // Draw an ENHANCED sci-fi wall segment with detailed panels and tech details
+    // DETAILED wall segment with optimizations (fewer panels per wall)
     inline void drawWallSegment(float x, float z, float rotation, float width, float height) {
+        glPushMatrix();
+        glTranslatef(x, height/2, z);
+        glRotatef(rotation, 0, 1, 0);
+        
+        // Pseudo-random based on position
+        int wallVariant = ((int)(fabs(x) * 11 + fabs(z) * 17)) % 4;
+        
+        // === MAIN WALL BODY ===
+        setColorMetallic(0.2f, 0.22f, 0.26f);
+        drawBox(width, height, 0.5f);
+        
+        // Draw BOTH SIDES of the wall with panels (optimized: fewer panels)
+        for (int side = -1; side <= 1; side += 2) {
+            float zOffset = side * 0.26f;
+            
+            // Fewer panels for optimization (larger panel width)
+            int numPanels = (int)(width / 6.0f);  // Was 3.5f - now larger panels
+            if (numPanels < 1) numPanels = 1;
+            float panelWidth = (width - 0.4f) / numPanels;
+            
+            for (int i = 0; i < numPanels; i++) {
+                float panelX = -width/2 + 0.2f + panelWidth/2 + i * panelWidth;
+                int panelType = (i + wallVariant + (side == -1 ? 2 : 0)) % 4;
+                
+                glPushMatrix();
+                glTranslatef(panelX, 0, zOffset);
+                if (side == -1) glRotatef(180, 0, 1, 0);
+                
+                // Panel base (recessed)
+                setColorMetallic(0.15f, 0.17f, 0.2f);
+                drawBox(panelWidth - 0.15f, height - 0.6f, 0.03f);
+                
+                // Panel details based on type
+                if (panelType == 0) {
+                    // Tech panel with screen
+                    setColorMetallic(0.1f, 0.12f, 0.15f);
+                    glPushMatrix();
+                    glTranslatef(0, height * 0.15f, 0.025f);
+                    drawBox(panelWidth * 0.6f, height * 0.3f, 0.02f);
+                    
+                    // Screen glow
+                    float pulse = sin(getTime() * 1.5f + i + x + side) * 0.15f + 0.85f;
+                    setColor(0.1f, 0.3f * pulse, 0.5f * pulse);
+                    setEmissive(0.05f, 0.15f * pulse, 0.25f * pulse);
+                    drawBox(panelWidth * 0.55f, height * 0.25f, 0.025f);
+                    clearEmissive();
+                    glPopMatrix();
+                    
+                } else if (panelType == 1) {
+                    // Ventilation panel (simplified - fewer slats)
+                    setColorMetallic(0.12f, 0.12f, 0.14f);
+                    int numVents = (int)(height / 1.5f);  // Fewer vents
+                    for (int v = 0; v < numVents; v++) {
+                        glPushMatrix();
+                        glTranslatef(0, -height/2 + 0.5f + v * 1.2f, 0.025f);
+                        drawBox(panelWidth * 0.7f, 0.15f, 0.015f);
+                        glPopMatrix();
+                    }
+                    
+                } else if (panelType == 2) {
+                    // Pipe/conduit panel
+                    setColorMetallic(0.25f, 0.27f, 0.3f);
+                    // Vertical pipes
+                    for (int p = -1; p <= 1; p += 2) {
+                        glPushMatrix();
+                        glTranslatef(p * panelWidth * 0.25f, 0, 0.04f);
+                        drawBox(0.12f, height - 0.8f, 0.12f);
+                        // Fewer pipe bands
+                        setColorMetallic(0.35f, 0.35f, 0.38f);
+                        for (int b = 0; b < 2; b++) {
+                            glPushMatrix();
+                            glTranslatef(0, -height/2 + 1.0f + b * (height - 1.5f), 0);
+                            drawBox(0.15f, 0.08f, 0.15f);
+                            glPopMatrix();
+                        }
+                        glPopMatrix();
+                    }
+                    
+                } else {
+                    // Industrial panel with rivets (simplified)
+                    setColorMetallic(0.18f, 0.2f, 0.24f);
+                    drawBox(panelWidth - 0.3f, height - 0.8f, 0.02f);
+                    
+                    // Just corner rivets
+                    setColorMetallic(0.4f, 0.42f, 0.45f);
+                    float rivetOff = 0.2f;
+                    float pW = (panelWidth - 0.3f) / 2 - rivetOff;
+                    float pH = (height - 0.8f) / 2 - rivetOff;
+                    for (int rx = -1; rx <= 1; rx += 2) {
+                        for (int ry = -1; ry <= 1; ry += 2) {
+                            glPushMatrix();
+                            glTranslatef(rx * pW, ry * pH, 0.025f);
+                            drawBox(0.06f, 0.06f, 0.03f);
+                            glPopMatrix();
+                        }
+                    }
+                }
+                glPopMatrix();
+            }
+            
+            // Running light strip (one per side)
+            float runningPos = fmod(getTime() * 2.0f + side, width) - width/2;
+            setColor(0.0f, 0.8f, 1.0f);
+            setEmissive(0.0f, 0.4f, 0.5f);
+            glPushMatrix();
+            glTranslatef(runningPos, -height/2 + 0.15f, zOffset + 0.02f * side);
+            drawBox(0.5f, 0.05f, 0.02f);
+            glPopMatrix();
+            clearEmissive();
+        }
+        
+        glPopMatrix();
+    }
+    
+    // Simple wall segment (kept for reference)
+    inline void drawWallSegmentSimple(float x, float z, float rotation, float width, float height) {
         glPushMatrix();
         glTranslatef(x, height/2, z);
         glRotatef(rotation, 0, 1, 0);
@@ -492,9 +631,9 @@ namespace LowPolyModels {
         glPopMatrix();
     }
     
-    // Draw complete level floor
+    // OPTIMIZED: Draw complete level floor using detailed tiles but larger size
     inline void drawLevelFloor(float width, float depth) {
-        float tileSize = 4.0f;
+        float tileSize = 8.0f;  // Larger tiles = fewer draw calls (was 4.0f)
         int tilesX = (int)(width / tileSize);
         int tilesZ = (int)(depth / tileSize);
         
@@ -502,14 +641,14 @@ namespace LowPolyModels {
             for (int z = 0; z < tilesZ; z++) {
                 float posX = -width/2 + tileSize/2 + x * tileSize;
                 float posZ = -depth/2 + tileSize/2 + z * tileSize;
-                drawFloorTile(posX, posZ, tileSize - 0.05f);
+                drawFloorTile(posX, posZ, tileSize - 0.05f);  // Use detailed tiles
             }
         }
     }
     
-    // Draw ENHANCED ceiling with detailed panels and lighting
+    // OPTIMIZED: Draw ceiling with detailed panels but larger spacing
     inline void drawCeiling(float width, float depth, float height) {
-        float tileSize = 6.0f;
+        float tileSize = 10.0f;  // Larger tiles (was 6.0f)
         int tilesX = (int)(width / tileSize);
         int tilesZ = (int)(depth / tileSize);
         

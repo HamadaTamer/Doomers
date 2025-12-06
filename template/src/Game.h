@@ -144,13 +144,33 @@ public:
         // Setup player-camera link
         player.setCamera(&camera);
         
-        // Initialize OpenGL settings
+        // ============================================
+        // GPU PERFORMANCE OPTIMIZATIONS
+        // ============================================
+        
+        // Enable depth testing
         glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LEQUAL);
+        
+        // Enable backface culling for better performance
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+        
+        // Lighting
         glEnable(GL_LIGHTING);
         glEnable(GL_LIGHT0);
         glEnable(GL_COLOR_MATERIAL);
         glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
         glEnable(GL_NORMALIZE);
+        
+        // Optimize rendering hints for quality
+        glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+        glHint(GL_POLYGON_SMOOTH_HINT, GL_FASTEST);
+        glHint(GL_LINE_SMOOTH_HINT, GL_FASTEST);
+        
+        // Enable smooth shading
+        glShadeModel(GL_SMOOTH);
         
         glClearColor(0.02f, 0.02f, 0.05f, 1.0f);
         
@@ -161,6 +181,7 @@ public:
         glFogi(GL_FOG_MODE, GL_LINEAR);
         glFogf(GL_FOG_START, 30.0f);
         glFogf(GL_FOG_END, 80.0f);
+        glHint(GL_FOG_HINT, GL_FASTEST); // Fast fog for better FPS
         
         // Set initial state
         state = STATE_MAIN_MENU;
