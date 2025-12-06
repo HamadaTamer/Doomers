@@ -1,0 +1,2439 @@
+// ============================================================================
+// DOOMERS - Level.h
+// Level management: Level 1 (Facility) and Level 2 (Hell Arena)
+// ============================================================================
+#ifndef LEVEL_H
+#define LEVEL_H
+
+#include "GameConfig.h"
+#include "Vector3.h"
+#include "Enemy.h"
+#include "Collectible.h"
+#include "Collision.h"
+#include "LowPolyModels.h"
+#include <glut.h>
+#include <stdlib.h>
+#include <math.h>
+#include <windows.h>
+#include <stdio.h>
+
+// Use global debug function from Doomers.cpp
+extern void debugLog(const char* msg);
+#define DEBUG_LOG(msg) debugLog(msg)
+
+// Import types from Collision namespace for convenience
+using Collision::AABB;
+using Collision::Sphere;
+using Collision::Ray;
+using Collision::Platform;
+using Collision::CollisionResult;
+using Collision::resolveSphereAABB;
+
+// Door structure
+struct Door {
+    Vector3 position;
+    float rotation;
+    bool isLocked;
+    int requiredKeycard;
+    bool isOpen;
+    float openAmount;
+    AABB bounds;
+    
+    Door() {
+        position = Vector3(0, 0, 0);
+        rotation = 0.0f;
+        isLocked = false;
+        requiredKeycard = 0;
+        isOpen = false;
+        openAmount = 0.0f;
+        updateBounds();
+    }
+    
+    void updateBounds() {
+        bounds = AABB::fromCenterSize(position + Vector3(0, 1.5f, 0), Vector3(1.2f, 1.5f, 0.3f));
+    }
+    
+    void update(float deltaTime) {
+        if (isOpen && openAmount < 1.0f) {
+            openAmount += deltaTime * 2.0f;
+            if (openAmount > 1.0f) openAmount = 1.0f;
+        }
+    }
+    
+    void draw() {
+        glPushMatrix();
+        glTranslatef(position.x, position.y, position.z);
+        glRotatef(rotation, 0, 1, 0);
+        LowPolyModels::drawDoor(isOpen, openAmount);
+        glPopMatrix();
+    }
+};
+
+// Mystery Box contents
+enum MysteryBoxContent {
+    MYSTERY_NOTHING = 0,
+    MYSTERY_HEALTH,
+    MYSTERY_AMMO
+};
+
+// Crate/Obstacle - can be a mystery box
+struct Crate {
+    Vector3 position;
+    float size;
+    bool isSciFi;
+    AABB bounds;
+    
+    // Mystery box properties
+    bool isMysteryBox;
+    bool isOpened;
+    float openAnimProgress;
+    MysteryBoxContent content;
+    bool contentCollected;
+    float glowPhase;
+    
+    Crate() : position(0,0,0), size(1.0f), isSciFi(false), isMysteryBox(false), 
+              isOpened(false), openAnimProgress(0.0f), content(MYSTERY_NOTHING),
+              contentCollected(false), glowPhase(0.0f) {
+        updateBounds();
+    }
+    
+    void updateBounds() {
+        float halfSize = size * 0.5f;
+        bounds = AABB::fromCenterSize(position + Vector3(0, halfSize, 0), Vector3(halfSize, halfSize, halfSize));
+    }
+    
+    void setAsMysteryBox() {
+        isMysteryBox = true;
+        isOpened = false;
+        openAnimProgress = 0.0f;
+        contentCollected = false;
+        // Random content: 40% nothing, 35% health, 25% ammo
+        int roll = rand() % 100;
+        if (roll < 40) content = MYSTERY_NOTHING;
+        else if (roll < 75) content = MYSTERY_HEALTH;
+        else content = MYSTERY_AMMO;
+    }
+    
+    void update(float deltaTime) {
+        glowPhase += deltaTime * 3.0f;
+        if (isOpened && openAnimProgress < 1.0f) {
+            openAnimProgress += deltaTime * 2.5f;
+            if (openAnimProgress > 1.0f) openAnimProgress = 1.0f;
+        }
+    }
+    
+    bool tryOpen() {
+        if (!isMysteryBox || isOpened) return false;
+        isOpened = true;
+        return true;
+    }
+    
+    // Returns content type and marks as collected
+    MysteryBoxContent collectContent() {
+        if (!isMysteryBox || !isOpened || contentCollected) return MYSTERY_NOTHING;
+        contentCollected = true;
+        return content;
+    }
+    
+    void draw() {
+        glPushMatrix();
+        glTranslatef(position.x, position.y, position.z);
+        
+        if (isMysteryBox) {
+            drawMysteryBox();
+        } else {
+            glTranslatef(0, size * 0.5f, 0);
+            if (isSciFi) {
+                LowPolyModels::drawSciFiCrate(size);
+            } else {
+                LowPolyModels::drawCrate(size);
+            }
+        }
+        glPopMatrix();
+    }
+    
+    void drawMysteryBox() {
+        float pulse = sin(glowPhase * 2.5f) * 0.25f + 0.75f;
+        float fastPulse = sin(glowPhase * 4.0f) * 0.2f + 0.8f;
+        
+        // Gentle hover animation when not opened
+        float hoverOffset = isOpened ? 0.0f : sin(glowPhase * 2.0f) * 0.05f;
+        
+        glPushMatrix();
+        glTranslatef(0, size * 0.5f + hoverOffset, 0);
+        
+        if (!isOpened) {
+            // Very slow rotation
+            glRotatef(glowPhase * 8.0f, 0, 1, 0);
+            
+            // Main crate with pulsing glow color
+            LowPolyModels::setColor(0.15f + 0.15f * pulse, 0.25f + 0.25f * pulse, 0.5f + 0.3f * pulse);
+            LowPolyModels::drawSciFiCrate(size);
+            
+            // Glowing edges effect
+            glDisable(GL_LIGHTING);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+            
+            // Energy lines on edges (no spheres!)
+            glLineWidth(2.0f);
+            glBegin(GL_LINES);
+            float edgeGlow = 0.6f + 0.4f * fastPulse;
+            glColor4f(0.3f * edgeGlow, 0.6f * edgeGlow, 1.0f * edgeGlow, 0.7f);
+            float hs = size * 0.52f;
+            // Vertical edges
+            for (int i = 0; i < 4; i++) {
+                float ex = (i < 2) ? -hs : hs;
+                float ez = (i % 2 == 0) ? -hs : hs;
+                glVertex3f(ex, -hs, ez);
+                glVertex3f(ex, hs, ez);
+            }
+            glEnd();
+            glLineWidth(1.0f);
+            
+            // Question mark symbol (simple, no sphere)
+            glColor4f(1.0f * pulse, 0.85f * pulse, 0.3f * pulse, 0.85f);
+            glPushMatrix();
+            glTranslatef(0, 0, size * 0.53f);
+            float qSize = size * 0.2f;
+            glBegin(GL_QUADS);
+            // Top arc of ?
+            glVertex3f(-qSize * 0.4f, qSize * 0.6f, 0);
+            glVertex3f(qSize * 0.4f, qSize * 0.6f, 0);
+            glVertex3f(qSize * 0.4f, qSize * 0.9f, 0);
+            glVertex3f(-qSize * 0.4f, qSize * 0.9f, 0);
+            // Stem
+            glVertex3f(-qSize * 0.12f, -qSize * 0.1f, 0);
+            glVertex3f(qSize * 0.12f, -qSize * 0.1f, 0);
+            glVertex3f(qSize * 0.12f, qSize * 0.35f, 0);
+            glVertex3f(-qSize * 0.12f, qSize * 0.35f, 0);
+            // Dot (square, not sphere)
+            glVertex3f(-qSize * 0.12f, -qSize * 0.5f, 0);
+            glVertex3f(qSize * 0.12f, -qSize * 0.5f, 0);
+            glVertex3f(qSize * 0.12f, -qSize * 0.28f, 0);
+            glVertex3f(-qSize * 0.12f, -qSize * 0.28f, 0);
+            glEnd();
+            glPopMatrix();
+            
+            // Small floating particles (tiny, subtle)
+            for (int i = 0; i < 4; i++) {
+                float angle = glowPhase * 0.5f + i * 1.57f;
+                float radius = size * 0.7f;
+                float px = cos(angle) * radius;
+                float pz = sin(angle) * radius;
+                float py = sin(glowPhase * 1.2f + i) * 0.15f;
+                
+                glColor4f(0.5f, 0.8f, 1.0f, 0.3f * fastPulse);
+                glPointSize(4.0f);
+                glBegin(GL_POINTS);
+                glVertex3f(px, py, pz);
+                glEnd();
+            }
+            glPointSize(1.0f);
+            
+            glDisable(GL_BLEND);
+            glEnable(GL_LIGHTING);
+        } else {
+            // OPENED BOX animation
+            float lidAngle = openAnimProgress * 115.0f;
+            
+            // Box base
+            LowPolyModels::setColorMetallic(0.18f, 0.2f, 0.24f);
+            glPushMatrix();
+            glScalef(1.0f, 0.6f, 1.0f);
+            LowPolyModels::drawSciFiCrate(size);
+            glPopMatrix();
+            
+            // Lid hinging open
+            glPushMatrix();
+            glTranslatef(0, size * 0.3f, -size * 0.5f);
+            glRotatef(-lidAngle, 1, 0, 0);
+            glTranslatef(0, 0, size * 0.5f);
+            LowPolyModels::setColorMetallic(0.22f, 0.25f, 0.3f);
+            glScalef(1.0f, 0.15f, 1.0f);
+            LowPolyModels::drawBox(size, size * 0.3f, size);
+            glPopMatrix();
+            
+            // Light beam from inside when opening
+            if (openAnimProgress > 0.2f && openAnimProgress < 0.9f) {
+                glDisable(GL_LIGHTING);
+                glEnable(GL_BLEND);
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+                float beamAlpha = sin((openAnimProgress - 0.2f) / 0.7f * 3.14159f) * 0.5f;
+                glColor4f(0.6f, 0.85f, 1.0f, beamAlpha);
+                // Light cone coming up
+                glBegin(GL_TRIANGLE_FAN);
+                glVertex3f(0, size * 0.8f, 0);
+                for (int i = 0; i <= 8; i++) {
+                    float a = i * 0.785f;
+                    glVertex3f(cos(a) * size * 0.25f, 0, sin(a) * size * 0.25f);
+                }
+                glEnd();
+                glDisable(GL_BLEND);
+                glEnable(GL_LIGHTING);
+            }
+            
+            // Draw content rising
+            if (!contentCollected && openAnimProgress > 0.4f) {
+                float contentT = (openAnimProgress - 0.4f) / 0.6f;
+                if (contentT > 1.0f) contentT = 1.0f;
+                float riseHeight = contentT * 0.6f;
+                float spinAngle = contentT * 180.0f;
+                float bobble = sin(glowPhase * 4.0f) * 0.03f * contentT;
+                
+                glPushMatrix();
+                glTranslatef(0, riseHeight + bobble + 0.15f, 0);
+                glRotatef(spinAngle, 0, 1, 0);
+                
+                if (content == MYSTERY_HEALTH) {
+                    // Subtle green glow (no sphere)
+                    glDisable(GL_LIGHTING);
+                    glEnable(GL_BLEND);
+                    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+                    glColor4f(0.2f, 0.8f, 0.3f, 0.25f);
+                    glBegin(GL_TRIANGLE_FAN);
+                    glVertex3f(0, 0.2f, 0);
+                    for (int i = 0; i <= 8; i++) {
+                        float a = i * 0.785f;
+                        glVertex3f(cos(a) * 0.35f, 0, sin(a) * 0.35f);
+                    }
+                    glEnd();
+                    glDisable(GL_BLEND);
+                    glEnable(GL_LIGHTING);
+                    LowPolyModels::drawHealthPack();
+                } else if (content == MYSTERY_AMMO) {
+                    // Subtle yellow glow (no sphere)
+                    glDisable(GL_LIGHTING);
+                    glEnable(GL_BLEND);
+                    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+                    glColor4f(0.9f, 0.7f, 0.2f, 0.25f);
+                    glBegin(GL_TRIANGLE_FAN);
+                    glVertex3f(0, 0.2f, 0);
+                    for (int i = 0; i <= 8; i++) {
+                        float a = i * 0.785f;
+                        glVertex3f(cos(a) * 0.35f, 0, sin(a) * 0.35f);
+                    }
+                    glEnd();
+                    glDisable(GL_BLEND);
+                    glEnable(GL_LIGHTING);
+                    LowPolyModels::drawAmmoBox();
+                } else {
+                    // Dust puff for empty (no spheres)
+                    glDisable(GL_LIGHTING);
+                    glEnable(GL_BLEND);
+                    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                    glColor4f(0.5f, 0.5f, 0.5f, 0.4f * (1.0f - contentT));
+                    // Draw as flat expanding ring
+                    float dustSize = 0.15f + contentT * 0.3f;
+                    glBegin(GL_TRIANGLE_FAN);
+                    glVertex3f(0, 0.1f, 0);
+                    for (int i = 0; i <= 12; i++) {
+                        float a = i * 0.524f;
+                        glVertex3f(cos(a) * dustSize, 0, sin(a) * dustSize);
+                    }
+                    glEnd();
+                    glDisable(GL_BLEND);
+                    glEnable(GL_LIGHTING);
+                }
+                
+                glPopMatrix();
+            }
+        }
+        
+        glPopMatrix();
+    }
+};
+
+// Parkour Obstacle - for vaulting
+struct ParkourObstacle {
+    Vector3 position;
+    float width;
+    float height;
+    float depth;
+    float rotation;
+    AABB bounds;
+    
+    ParkourObstacle() : position(0,0,0), width(3.0f), height(1.2f), depth(0.4f), rotation(0.0f) {
+        updateBounds();
+    }
+    
+    void updateBounds() {
+        // Calculate rotated bounds - swap width/depth based on rotation
+        // Use FULL height for collision to prevent ANY pass-through
+        float halfH = height * 0.5f + 0.5f; // Extra height padding
+        float halfW, halfD;
+        
+        // If rotation is near 90 or 270 degrees, swap width and depth for AABB
+        float absRot = fabs(fmod(rotation, 180.0f));
+        if (absRot > 45.0f && absRot < 135.0f) {
+            // Rotated 90 degrees - width becomes depth, depth becomes width
+            halfW = depth * 0.5f + 0.8f;  // Large padding for solid collision
+            halfD = width * 0.5f + 0.8f;
+        } else {
+            halfW = width * 0.5f + 0.8f;
+            halfD = depth * 0.5f + 0.8f;
+        }
+        // Center the bounds on the obstacle, slightly raised
+        bounds = AABB::fromCenterSize(position + Vector3(0, halfH, 0), Vector3(halfW, halfH, halfD));
+    }
+    
+    bool isPlayerNearForVault(const Vector3& playerPos, float playerRadius) {
+        float dx = playerPos.x - position.x;
+        float dz = playerPos.z - position.z;
+        float dist = sqrt(dx * dx + dz * dz);
+        return dist < (width * 0.5f + playerRadius + 0.5f);
+    }
+    
+    void draw() {
+        glPushMatrix();
+        glTranslatef(position.x, position.y, position.z);
+        glRotatef(rotation, 0, 1, 0);
+        
+        // Base platform (so it's more visible)
+        LowPolyModels::setColorMetallic(0.25f, 0.25f, 0.28f);
+        glPushMatrix();
+        glTranslatef(0, 0.05f, 0);
+        LowPolyModels::drawBox(width + 0.4f, 0.1f, depth + 0.8f);
+        glPopMatrix();
+        
+        // Main barrier body - THICKER for visibility
+        LowPolyModels::setColorMetallic(0.4f, 0.42f, 0.45f);
+        glPushMatrix();
+        glTranslatef(0, height * 0.5f, 0);
+        LowPolyModels::drawBox(width, height, depth + 0.3f);
+        glPopMatrix();
+        
+        // Top rail - BIGGER and BRIGHTER
+        LowPolyModels::setColorMetallic(0.6f, 0.62f, 0.65f);
+        glPushMatrix();
+        glTranslatef(0, height + 0.08f, 0);
+        LowPolyModels::drawBox(width + 0.2f, 0.16f, depth + 0.4f);
+        glPopMatrix();
+        
+        // Highlight strip on top rail
+        LowPolyModels::setEmissive(0.1f, 0.1f, 0.15f);
+        glPushMatrix();
+        glTranslatef(0, height + 0.17f, 0);
+        LowPolyModels::drawBox(width, 0.02f, depth + 0.2f);
+        glPopMatrix();
+        LowPolyModels::clearEmissive();
+        
+        // Support posts - LARGER
+        LowPolyModels::setColorMetallic(0.35f, 0.35f, 0.38f);
+        float postX[] = {-width * 0.4f, width * 0.4f};
+        for (int i = 0; i < 2; i++) {
+            glPushMatrix();
+            glTranslatef(postX[i], height * 0.5f, depth * 0.4f);
+            LowPolyModels::drawBox(0.2f, height, 0.2f);
+            glPopMatrix();
+            glPushMatrix();
+            glTranslatef(postX[i], height * 0.5f, -depth * 0.4f);
+            LowPolyModels::drawBox(0.2f, height, 0.2f);
+            glPopMatrix();
+        }
+        
+        // Caution stripes - MORE VISIBLE
+        glDisable(GL_LIGHTING);
+        glColor3f(0.9f, 0.7f, 0.1f);
+        glPushMatrix();
+        glTranslatef(0, height * 0.7f, depth * 0.51f);
+        glBegin(GL_QUADS);
+        for (float x = -width * 0.45f; x < width * 0.4f; x += 0.4f) {
+            glVertex3f(x, -0.1f, 0);
+            glVertex3f(x + 0.2f, -0.1f, 0);
+            glVertex3f(x + 0.3f, 0.1f, 0);
+            glVertex3f(x + 0.1f, 0.1f, 0);
+        }
+        glEnd();
+        glPopMatrix();
+        glEnable(GL_LIGHTING);
+        
+        glPopMatrix();
+    }
+};
+
+// Exit Door for level completion
+struct ExitDoor {
+    Vector3 position;
+    float rotation;
+    bool isActive;
+    bool isOpen;
+    float openAmount;
+    float lightIntensity;
+    float lightPhase;
+    AABB bounds;
+    
+    ExitDoor() : position(0,0,0), rotation(0.0f), isActive(false), isOpen(false),
+                 openAmount(0.0f), lightIntensity(0.0f), lightPhase(0.0f) {
+        updateBounds();
+    }
+    
+    void updateBounds() {
+        bounds = AABB::fromCenterSize(position + Vector3(0, 1.5f, 0), Vector3(1.5f, 1.5f, 0.5f));
+    }
+    
+    void activate() {
+        isActive = true;
+    }
+    
+    void update(float deltaTime) {
+        lightPhase += deltaTime * 4.0f;
+        
+        if (isActive) {
+            lightIntensity += deltaTime * 2.0f;
+            if (lightIntensity > 1.0f) lightIntensity = 1.0f;
+        }
+        
+        if (isOpen && openAmount < 1.0f) {
+            openAmount += deltaTime * 1.5f;
+            if (openAmount > 1.0f) openAmount = 1.0f;
+        }
+    }
+    
+    bool tryOpen() {
+        if (!isActive) return false;
+        isOpen = true;
+        return true;
+    }
+    
+    void draw() {
+        glPushMatrix();
+        glTranslatef(position.x, position.y, position.z);
+        glRotatef(rotation, 0, 1, 0);
+        
+        // Door frame
+        LowPolyModels::setColorMetallic(0.3f, 0.32f, 0.35f);
+        // Left frame
+        glPushMatrix();
+        glTranslatef(-1.3f, 1.5f, 0);
+        LowPolyModels::drawBox(0.2f, 3.0f, 0.3f);
+        glPopMatrix();
+        // Right frame
+        glPushMatrix();
+        glTranslatef(1.3f, 1.5f, 0);
+        LowPolyModels::drawBox(0.2f, 3.0f, 0.3f);
+        glPopMatrix();
+        // Top frame
+        glPushMatrix();
+        glTranslatef(0, 3.1f, 0);
+        LowPolyModels::drawBox(2.8f, 0.2f, 0.3f);
+        glPopMatrix();
+        
+        // Door panels (slide open)
+        float slideOffset = openAmount * 1.1f;
+        
+        // Left door panel
+        LowPolyModels::setColorMetallic(0.25f, 0.28f, 0.32f);
+        glPushMatrix();
+        glTranslatef(-0.55f - slideOffset, 1.5f, 0);
+        LowPolyModels::drawBox(1.0f, 2.9f, 0.15f);
+        glPopMatrix();
+        
+        // Right door panel
+        glPushMatrix();
+        glTranslatef(0.55f + slideOffset, 1.5f, 0);
+        LowPolyModels::drawBox(1.0f, 2.9f, 0.15f);
+        glPopMatrix();
+        
+        // Light above door
+        if (isActive) {
+            float pulse = sin(lightPhase) * 0.2f + 0.8f;
+            float intensity = lightIntensity * pulse;
+            
+            // Light housing
+            LowPolyModels::setColorMetallic(0.2f, 0.22f, 0.25f);
+            glPushMatrix();
+            glTranslatef(0, 3.5f, 0.3f);
+            LowPolyModels::drawBox(1.5f, 0.3f, 0.3f);
+            glPopMatrix();
+            
+            // Light glow
+            glDisable(GL_LIGHTING);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+            glColor4f(0.2f * intensity, 0.9f * intensity, 0.3f * intensity, 0.8f);
+            glPushMatrix();
+            glTranslatef(0, 3.5f, 0.5f);
+            glutSolidSphere(0.25f * intensity, 8, 8);
+            glPopMatrix();
+            
+            // Arrow indicator on floor
+            glColor4f(0.1f * intensity, 0.8f * intensity, 0.2f * intensity, 0.6f);
+            glPushMatrix();
+            glTranslatef(0, 0.02f, 1.5f);
+            glBegin(GL_TRIANGLES);
+            glVertex3f(-0.4f, 0, 0.5f);
+            glVertex3f(0.4f, 0, 0.5f);
+            glVertex3f(0, 0, -0.5f);
+            glEnd();
+            glPopMatrix();
+            
+            glDisable(GL_BLEND);
+            glEnable(GL_LIGHTING);
+        }
+        
+        glPopMatrix();
+    }
+};
+
+class Level {
+public:
+    LevelID levelID;
+    
+    // Arrays of game objects
+    Enemy enemies[MAX_ENEMIES];
+    int numEnemies;
+    
+    Collectible collectibles[MAX_HEALTH_PACKS + MAX_AMMO_BOXES + MAX_KEYCARDS];
+    int numCollectibles;
+    
+    Platform platforms[MAX_PLATFORMS];
+    int numPlatforms;
+    
+    Crate crates[MAX_CRATES];
+    int numCrates;
+    
+    Door doors[MAX_DOORS];
+    int numDoors;
+    
+    // Parkour obstacles
+    static const int MAX_PARKOUR_OBSTACLES = 10;
+    ParkourObstacle parkourObstacles[MAX_PARKOUR_OBSTACLES];
+    int numParkourObstacles;
+    
+    // Exit door (shown when all enemies killed)
+    ExitDoor exitDoor;
+    bool allEnemiesKilled;
+    bool exitDoorJustActivated; // Flag for Game to play sound
+    
+    // Level properties
+    Vector3 playerStart;
+    Vector3 objective; // Goal position
+    float objectiveRadius;
+    bool objectiveReached;
+    
+    // Environment
+    float floorSize;
+    float wallHeight;
+    bool hasLava;
+    float lavaHeight;
+    
+    // For culling optimization
+    Vector3 lastPlayerPos;
+    float drawDistance; // Objects beyond this distance not drawn
+    
+    // Timing
+    float levelTime;
+    float maxTime;
+    
+    Level() {
+        reset();
+    }
+    
+    void reset() {
+        levelID = LEVEL_1_FACILITY;
+        numEnemies = 0;
+        numCollectibles = 0;
+        numPlatforms = 0;
+        numCrates = 0;
+        numDoors = 0;
+        numParkourObstacles = 0;
+        allEnemiesKilled = false;
+        exitDoorJustActivated = false;
+        
+        // Reset exit door
+        exitDoor = ExitDoor();
+        
+        playerStart = Vector3(0, PLAYER_HEIGHT, 0);
+        objective = Vector3(0, 0, -25);
+        objectiveRadius = 3.0f;
+        objectiveReached = false;
+        
+        floorSize = FLOOR_SIZE;
+        wallHeight = WALL_HEIGHT;
+        hasLava = false;
+        lavaHeight = -2.0f;
+        drawDistance = 80.0f; // Culling distance
+        
+        levelTime = 0.0f;
+        maxTime = 300.0f; // 5 minutes
+    }
+    
+    void loadLevel1() {
+        DEBUG_LOG("Level::loadLevel1 START\n");
+        reset();
+        DEBUG_LOG("Level::loadLevel1 reset done\n");
+        levelID = LEVEL_1_FACILITY;
+        floorSize = 80.0f;   // Larger facility
+        wallHeight = 10.0f;
+        hasLava = false;
+        maxTime = 360.0f;    // 6 minutes
+        
+        // Player starts in the entrance/security checkpoint area
+        playerStart = Vector3(-32, PLAYER_HEIGHT, -32);
+        // Objective is in the central reactor core
+        objective = Vector3(25, 0, 25);
+        
+        DEBUG_LOG("Level::loadLevel1 adding enemies\n");
+        // ===================================================================
+        // ENEMIES - Strategically placed throughout the lab
+        // ===================================================================
+        numEnemies = 0;
+        
+        // SECTOR A: Entrance/Security (SW quadrant) - Light resistance
+        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(-25, 0, -25), Vector3(-30, 0, -25), Vector3(-20, 0, -25));
+        numEnemies++;
+        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(-20, 0, -15), Vector3(-25, 0, -15), Vector3(-15, 0, -15));
+        numEnemies++;
+        
+        // SECTOR B: Research Labs (NW quadrant) - Medium resistance
+        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(-25, 0, 10), Vector3(-30, 0, 10), Vector3(-20, 0, 10));
+        numEnemies++;
+        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(-15, 0, 20), Vector3(-20, 0, 20), Vector3(-10, 0, 20));
+        numEnemies++;
+        enemies[numEnemies].init(ENEMY_DEMON, Vector3(-10, 0, 28), Vector3(-15, 0, 28), Vector3(-5, 0, 28));
+        numEnemies++;
+        
+        // SECTOR C: Containment (SE quadrant) - Heavy resistance
+        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(20, 0, -20), Vector3(15, 0, -20), Vector3(25, 0, -20));
+        numEnemies++;
+        enemies[numEnemies].init(ENEMY_DEMON, Vector3(25, 0, -10), Vector3(20, 0, -10), Vector3(30, 0, -10));
+        numEnemies++;
+        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(15, 0, -5), Vector3(10, 0, -5), Vector3(20, 0, -5));
+        numEnemies++;
+        
+        // SECTOR D: Reactor Core (NE quadrant) - Boss area
+        enemies[numEnemies].init(ENEMY_DEMON, Vector3(15, 0, 15), Vector3(10, 0, 15), Vector3(20, 0, 15));
+        numEnemies++;
+        enemies[numEnemies].init(ENEMY_DEMON, Vector3(30, 0, 20), Vector3(25, 0, 20), Vector3(35, 0, 20));
+        numEnemies++;
+        
+        // Central corridor patrols
+        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(0, 0, 0), Vector3(-10, 0, 0), Vector3(10, 0, 0));
+        numEnemies++;
+        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(5, 0, 10), Vector3(0, 0, 10), Vector3(10, 0, 10));
+        numEnemies++;
+        DEBUG_LOG("Level::loadLevel1 enemies done\n");
+        
+        // ===================================================================
+        // COLLECTIBLES - Health, Ammo, Keycards
+        // ===================================================================
+        DEBUG_LOG("Level::loadLevel1 adding collectibles\n");
+        numCollectibles = 0;
+        
+        // Health packs - near combat zones
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-28, 0, -28), 25);  // Start area
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-20, 0, 5), 25);   // Research
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(10, 0, -15), 30);  // Containment
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(0, 0, 15), 25);    // Central
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(20, 0, 30), 50);   // Near boss
+        numCollectibles++;
+        
+        // Ammo boxes - scattered throughout
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(-25, 0, -20), 20);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(-15, 0, 0), 20);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(5, 0, -25), 25);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(25, 0, 0), 25);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(10, 0, 25), 30);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(-5, 0, 30), 20);
+        numCollectibles++;
+        
+        // Keycards
+        collectibles[numCollectibles].init(COLLECT_KEYCARD, Vector3(-20, 0, 25), 1);  // Blue keycard - in research lab
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_KEYCARD, Vector3(28, 0, -25), 2);  // Red keycard - in containment
+        numCollectibles++;
+        DEBUG_LOG("Level::loadLevel1 collectibles done\n");
+        
+        // ===================================================================
+        // PLATFORMS - Catwalks, observation decks, server room platforms
+        // ===================================================================
+        DEBUG_LOG("Level::loadLevel1 adding platforms\n");
+        numPlatforms = 0;
+        
+        // Central observation platform (overlooks main corridor)
+        platforms[numPlatforms] = Platform(Vector3(0, 2.5f, 0), Vector3(6, 0.4f, 6));
+        numPlatforms++;
+        
+        // Access ramp to central platform
+        platforms[numPlatforms] = Platform(Vector3(-5, 1.2f, 0), Vector3(4, 0.4f, 3));
+        numPlatforms++;
+        platforms[numPlatforms] = Platform(Vector3(-8, 0.6f, 0), Vector3(2, 0.4f, 3));
+        numPlatforms++;
+        
+        // Research lab elevated walkway
+        platforms[numPlatforms] = Platform(Vector3(-25, 2.0f, 15), Vector3(8, 0.4f, 3));
+        numPlatforms++;
+        platforms[numPlatforms] = Platform(Vector3(-25, 2.0f, 25), Vector3(8, 0.4f, 3));
+        numPlatforms++;
+        
+        // Containment observation deck
+        platforms[numPlatforms] = Platform(Vector3(25, 3.0f, -15), Vector3(6, 0.4f, 4));
+        numPlatforms++;
+        platforms[numPlatforms] = Platform(Vector3(20, 1.5f, -15), Vector3(4, 0.4f, 4));
+        numPlatforms++;
+        
+        // Reactor control platforms
+        platforms[numPlatforms] = Platform(Vector3(20, 2.0f, 20), Vector3(5, 0.4f, 5));
+        numPlatforms++;
+        platforms[numPlatforms] = Platform(Vector3(30, 1.0f, 25), Vector3(4, 0.4f, 4));
+        numPlatforms++;
+        
+        // Server room platforms
+        platforms[numPlatforms] = Platform(Vector3(10, 1.5f, -25), Vector3(4, 0.4f, 4));
+        numPlatforms++;
+        
+        // ===================================================================
+        // CRATES - Lab equipment, server racks, supply containers
+        // Some are MYSTERY BOXES that can contain health, ammo, or nothing
+        // ===================================================================
+        numCrates = 0;
+        
+        // Entrance security checkpoint crates
+        float cratePositions[][4] = {
+            // Security checkpoint (SW)
+            {-30, 0, -30, 1.0f}, {-28, 0, -32, 1.2f}, {-35, 0, -25, 1.0f},
+            // Research lab storage (NW)
+            {-30, 0, 15, 1.2f}, {-32, 0, 20, 1.0f}, {-28, 0, 28, 1.5f}, {-20, 0, 30, 1.0f},
+            // Containment area (SE)
+            {25, 0, -30, 1.2f}, {30, 0, -28, 1.0f}, {20, 0, -25, 1.3f}, {32, 0, -18, 1.0f},
+            // Reactor area (NE)
+            {30, 0, 15, 1.0f}, {35, 0, 22, 1.2f}, {28, 0, 30, 1.0f},
+            // Central corridor
+            {-10, 0, 5, 1.0f}, {10, 0, -5, 1.2f}, {-5, 0, -10, 1.0f}, {5, 0, 8, 1.0f},
+            // Server room
+            {15, 0, -30, 1.3f}, {8, 0, -28, 1.0f},
+        };
+        
+        // Mystery box indices (these crates become mystery boxes)
+        int mysteryBoxIndices[] = {0, 3, 7, 10, 14, 17};
+        int numMysteryBoxes = 6;
+        
+        for (int i = 0; i < 20 && numCrates < MAX_CRATES; i++) {
+            crates[numCrates].position = Vector3(cratePositions[i][0], cratePositions[i][1], cratePositions[i][2]);
+            crates[numCrates].size = cratePositions[i][3];
+            crates[numCrates].isSciFi = true;  // All sci-fi crates in the lab
+            crates[numCrates].updateBounds();
+            
+            // Check if this should be a mystery box
+            for (int j = 0; j < numMysteryBoxes; j++) {
+                if (mysteryBoxIndices[j] == i) {
+                    crates[numCrates].setAsMysteryBox();
+                    break;
+                }
+            }
+            numCrates++;
+        }
+        DEBUG_LOG("Level::loadLevel1 crates done\n");
+        
+        // ===================================================================
+        // PARKOUR OBSTACLES - Barriers for vaulting (press E)
+        // ===================================================================
+        DEBUG_LOG("Level::loadLevel1 adding parkour obstacles\n");
+        numParkourObstacles = 0;
+        
+        // Barrier between Security and Research
+        parkourObstacles[numParkourObstacles].position = Vector3(-25, 0, 2);
+        parkourObstacles[numParkourObstacles].width = 4.0f;
+        parkourObstacles[numParkourObstacles].height = 1.2f;
+        parkourObstacles[numParkourObstacles].depth = 0.5f;
+        parkourObstacles[numParkourObstacles].rotation = 90.0f;
+        parkourObstacles[numParkourObstacles].updateBounds();
+        numParkourObstacles++;
+        
+        // Barrier in central corridor
+        parkourObstacles[numParkourObstacles].position = Vector3(0, 0, -8);
+        parkourObstacles[numParkourObstacles].width = 5.0f;
+        parkourObstacles[numParkourObstacles].height = 1.0f;
+        parkourObstacles[numParkourObstacles].depth = 0.4f;
+        parkourObstacles[numParkourObstacles].rotation = 0.0f;
+        parkourObstacles[numParkourObstacles].updateBounds();
+        numParkourObstacles++;
+        
+        // Barrier between Containment and Reactor
+        parkourObstacles[numParkourObstacles].position = Vector3(25, 0, 2);
+        parkourObstacles[numParkourObstacles].width = 4.0f;
+        parkourObstacles[numParkourObstacles].height = 1.2f;
+        parkourObstacles[numParkourObstacles].depth = 0.5f;
+        parkourObstacles[numParkourObstacles].rotation = 90.0f;
+        parkourObstacles[numParkourObstacles].updateBounds();
+        numParkourObstacles++;
+        
+        // Barrier near entrance
+        parkourObstacles[numParkourObstacles].position = Vector3(-15, 0, -20);
+        parkourObstacles[numParkourObstacles].width = 3.5f;
+        parkourObstacles[numParkourObstacles].height = 1.1f;
+        parkourObstacles[numParkourObstacles].depth = 0.4f;
+        parkourObstacles[numParkourObstacles].rotation = 45.0f;
+        parkourObstacles[numParkourObstacles].updateBounds();
+        numParkourObstacles++;
+        
+        DEBUG_LOG("Level::loadLevel1 parkour obstacles done\n");
+        
+        // ===================================================================
+        // EXIT DOOR - Appears when all enemies are killed
+        // Position at a clear spot near the edge of the map, NOT on platforms
+        // ===================================================================
+        exitDoor.position = Vector3(0, 0, -38);  // Near back wall, center
+        exitDoor.rotation = 0.0f;  // Facing player
+        exitDoor.isActive = false;
+        exitDoor.updateBounds();
+        DEBUG_LOG("Level::loadLevel1 exit door done\n");
+        
+        // ===================================================================
+        // DOORS - Security doors throughout facility
+        // ===================================================================
+        DEBUG_LOG("Level::loadLevel1 adding doors\n");
+        numDoors = 0;
+        
+        // Research lab access (requires blue keycard)
+        doors[numDoors].position = Vector3(-15, 0, 10);
+        doors[numDoors].rotation = 0.0f;
+        doors[numDoors].isLocked = true;
+        doors[numDoors].requiredKeycard = 1;
+        doors[numDoors].updateBounds();
+        numDoors++;
+        
+        // Reactor core access (requires red keycard)
+        doors[numDoors].position = Vector3(15, 0, 15);
+        doors[numDoors].rotation = 90.0f;
+        doors[numDoors].isLocked = true;
+        doors[numDoors].requiredKeycard = 2;
+        doors[numDoors].updateBounds();
+        numDoors++;
+        
+        // Containment to central corridor
+        doors[numDoors].position = Vector3(10, 0, -10);
+        doors[numDoors].rotation = 0.0f;
+        doors[numDoors].isLocked = false;
+        doors[numDoors].updateBounds();
+        numDoors++;
+        DEBUG_LOG("Level::loadLevel1 COMPLETE\n");
+    }
+    
+    void loadLevel2() {
+        reset();
+        levelID = LEVEL_2_HELL_ARENA;
+        floorSize = 70.0f;
+        wallHeight = 0.0f; // Outdoor
+        hasLava = true;
+        lavaHeight = -0.5f;
+        maxTime = 400.0f; // Longer level
+        
+        playerStart = Vector3(0, PLAYER_HEIGHT, -25);
+        objective = Vector3(0, 5, 25); // Obelisk position
+        
+        // === ENEMIES ===
+        numEnemies = 0;
+        
+        // More demons in hell arena
+        enemies[numEnemies].init(ENEMY_DEMON, Vector3(-15, 0, 0), Vector3(-20, 0, 0), Vector3(-10, 0, 0));
+        numEnemies++;
+        
+        enemies[numEnemies].init(ENEMY_DEMON, Vector3(15, 0, 0), Vector3(10, 0, 0), Vector3(20, 0, 0));
+        numEnemies++;
+        
+        enemies[numEnemies].init(ENEMY_DEMON, Vector3(0, 0, 10), Vector3(-10, 0, 10), Vector3(10, 0, 10));
+        numEnemies++;
+        
+        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(-20, 0, -15), Vector3(-25, 0, -15), Vector3(-15, 0, -15));
+        numEnemies++;
+        
+        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(20, 0, -15), Vector3(15, 0, -15), Vector3(25, 0, -15));
+        numEnemies++;
+        
+        // BOSS guarding the obelisk
+        enemies[numEnemies].init(ENEMY_BOSS, Vector3(0, 0, 20), Vector3(-5, 0, 20), Vector3(5, 0, 20));
+        numEnemies++;
+        
+        // === COLLECTIBLES ===
+        numCollectibles = 0;
+        
+        // More health packs needed for harder level
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-20, 0, -20), 30);
+        numCollectibles++;
+        
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(20, 0, -20), 30);
+        numCollectibles++;
+        
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(0, 0, 0), 30);
+        numCollectibles++;
+        
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-15, 3, 15), 50); // On platform
+        numCollectibles++;
+        
+        // Ammo
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(-10, 0, -10), 25);
+        numCollectibles++;
+        
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(10, 0, -10), 25);
+        numCollectibles++;
+        
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(0, 0, 15), 30);
+        numCollectibles++;
+        
+        // === PLATFORMS (Floating rock platforms over lava) ===
+        numPlatforms = 0;
+        
+        // Starting area platforms
+        platforms[numPlatforms] = Platform(Vector3(0, 0.5f, -22), Vector3(8, 1.0f, 8));
+        numPlatforms++;
+        
+        // Path across arena
+        platforms[numPlatforms] = Platform(Vector3(-10, 1.0f, -15), Vector3(5, 0.6f, 5));
+        numPlatforms++;
+        
+        platforms[numPlatforms] = Platform(Vector3(10, 1.0f, -15), Vector3(5, 0.6f, 5));
+        numPlatforms++;
+        
+        platforms[numPlatforms] = Platform(Vector3(-15, 1.5f, -5), Vector3(4, 0.6f, 4));
+        numPlatforms++;
+        
+        platforms[numPlatforms] = Platform(Vector3(15, 1.5f, -5), Vector3(4, 0.6f, 4));
+        numPlatforms++;
+        
+        platforms[numPlatforms] = Platform(Vector3(0, 1.2f, 0), Vector3(10, 0.8f, 10)); // Central arena
+        numPlatforms++;
+        
+        platforms[numPlatforms] = Platform(Vector3(-15, 2.5f, 10), Vector3(4, 0.6f, 4));
+        numPlatforms++;
+        
+        platforms[numPlatforms] = Platform(Vector3(15, 2.5f, 10), Vector3(4, 0.6f, 4));
+        numPlatforms++;
+        
+        // Objective platform
+        platforms[numPlatforms] = Platform(Vector3(0, 3.0f, 22), Vector3(8, 1.0f, 8));
+        numPlatforms++;
+        
+        // === ROCKS (use crates as rocks) ===
+        numCrates = 0;
+        
+        float rockPositions[][3] = {
+            {-25, 0, -10}, {-22, 0, 5}, {25, 0, -10}, {22, 0, 5},
+            {-28, 0, -25}, {28, 0, -25}, {-5, 0, -30}, {5, 0, -30},
+        };
+        
+        for (int i = 0; i < 8 && numCrates < MAX_CRATES; i++) {
+            crates[numCrates].position = Vector3(rockPositions[i][0], rockPositions[i][1], rockPositions[i][2]);
+            crates[numCrates].size = 1.5f + (float)(rand() % 10) / 10.0f;
+            crates[numCrates].isSciFi = false; // Use as rocks
+            crates[numCrates].updateBounds();
+            numCrates++;
+        }
+        
+        numDoors = 0; // No doors in outdoor level
+    }
+    
+    void update(float deltaTime, const Vector3& playerPos) {
+        levelTime += deltaTime;
+        lastPlayerPos = playerPos; // Store for culling
+        
+        // Update enemies
+        for (int i = 0; i < numEnemies; i++) {
+            enemies[i].update(deltaTime, playerPos);
+            
+            // Enemy collision with crates
+            if (enemies[i].active && !enemies[i].isDead()) {
+                Sphere enemySphere(enemies[i].position, 0.8f);
+                for (int j = 0; j < numCrates; j++) {
+                    CollisionResult result = Collision::resolveSphereAABB(enemySphere, crates[j].bounds);
+                    if (result.hit) {
+                        enemies[i].position = enemies[i].position + result.normal * result.penetration;
+                    }
+                }
+                
+                // Enemy collision with parkour obstacles
+                for (int j = 0; j < numParkourObstacles; j++) {
+                    CollisionResult result = Collision::resolveSphereAABB(enemySphere, parkourObstacles[j].bounds);
+                    if (result.hit) {
+                        enemies[i].position = enemies[i].position + result.normal * result.penetration;
+                    }
+                }
+                
+                // Enemy collision with interior walls
+                checkInteriorWallCollision(enemies[i].position, 0.8f);
+            }
+        }
+        
+        // Update collectibles
+        for (int i = 0; i < numCollectibles; i++) {
+            collectibles[i].update(deltaTime);
+        }
+        
+        // Update crates (including mystery boxes)
+        for (int i = 0; i < numCrates; i++) {
+            crates[i].update(deltaTime);
+        }
+        
+        // Update doors
+        for (int i = 0; i < numDoors; i++) {
+            doors[i].update(deltaTime);
+        }
+        
+        // Update exit door
+        exitDoor.update(deltaTime);
+        
+        // Check if all enemies are killed
+        if (!allEnemiesKilled) {
+            bool anyAlive = false;
+            for (int i = 0; i < numEnemies; i++) {
+                if (enemies[i].active && !enemies[i].isDead()) {
+                    anyAlive = true;
+                    break;
+                }
+            }
+            if (!anyAlive && numEnemies > 0) {
+                allEnemiesKilled = true;
+                exitDoorJustActivated = true; // Flag for Game to play sound
+                exitDoor.activate();
+            }
+        }
+        
+        // Check objective - only complete when at exit door after all enemies killed
+        if (allEnemiesKilled && exitDoor.isOpen) {
+            float distToExit = playerPos.distanceTo(exitDoor.position);
+            if (distToExit < 2.5f) {
+                objectiveReached = true;
+            }
+        }
+    }
+    
+    // Check if all enemies are dead
+    bool areAllEnemiesKilled() const {
+        return allEnemiesKilled;
+    }
+    
+    // Get nearest interactable object for E key
+    // Returns: 0 = nothing, 1 = mystery box, 2 = parkour obstacle, 3 = exit door
+    int getNearestInteractable(const Vector3& playerPos, int& outIndex, float maxDist = 2.5f) {
+        float closestDist = maxDist;
+        int closestType = 0;
+        int closestIndex = -1;
+        
+        // Check mystery boxes
+        for (int i = 0; i < numCrates; i++) {
+            if (crates[i].isMysteryBox && !crates[i].isOpened) {
+                float dist = playerPos.distanceTo(crates[i].position + Vector3(0, 0.5f, 0));
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closestType = 1;
+                    closestIndex = i;
+                }
+            }
+            // Also check opened boxes with uncollected content
+            if (crates[i].isMysteryBox && crates[i].isOpened && !crates[i].contentCollected && crates[i].openAnimProgress > 0.8f) {
+                float dist = playerPos.distanceTo(crates[i].position + Vector3(0, 0.5f, 0));
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closestType = 1;
+                    closestIndex = i;
+                }
+            }
+        }
+        
+        // Check parkour obstacles
+        for (int i = 0; i < numParkourObstacles; i++) {
+            if (parkourObstacles[i].isPlayerNearForVault(playerPos, PLAYER_COLLISION_RADIUS)) {
+                float dist = playerPos.distanceTo(parkourObstacles[i].position);
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closestType = 2;
+                    closestIndex = i;
+                }
+            }
+        }
+        
+        // Check exit door
+        if (exitDoor.isActive && !exitDoor.isOpen) {
+            float dist = playerPos.distanceTo(exitDoor.position);
+            if (dist < closestDist) {
+                closestDist = dist;
+                closestType = 3;
+                closestIndex = 0;
+            }
+        }
+        
+        outIndex = closestIndex;
+        return closestType;
+    }
+    
+    // Check parkour obstacle collision
+    bool checkParkourObstacleCollision(Vector3& playerPos, float playerRadius) {
+        bool collided = false;
+        Sphere playerSphere(playerPos, playerRadius);
+        
+        for (int i = 0; i < numParkourObstacles; i++) {
+            CollisionResult result = Collision::resolveSphereAABB(playerSphere, parkourObstacles[i].bounds);
+            if (result.hit) {
+                playerPos = playerPos + result.normal * result.penetration;
+                collided = true;
+            }
+        }
+        
+        return collided;
+    }
+    
+    // Check if player is on a platform, returns ground height
+    float checkPlatformCollision(const Vector3& playerPos, float playerRadius) {
+        float groundHeight = 0.0f;
+        
+        for (int i = 0; i < numPlatforms; i++) {
+            float platformGround;
+            if (platforms[i].isPlayerOnTop(playerPos, playerRadius, platformGround)) {
+                if (platformGround > groundHeight) {
+                    groundHeight = platformGround;
+                }
+            }
+        }
+        
+        return groundHeight;
+    }
+    
+    // Check crate collisions and return push direction
+    bool checkCrateCollision(Vector3& playerPos, float playerRadius) {
+        bool collided = false;
+        Sphere playerSphere(playerPos, playerRadius);
+        
+        for (int i = 0; i < numCrates; i++) {
+            CollisionResult result = Collision::resolveSphereAABB(playerSphere, crates[i].bounds);
+            if (result.hit) {
+                playerPos = playerPos + result.normal * result.penetration;
+                collided = true;
+            }
+        }
+        
+        return collided;
+    }
+    
+    // Check door collision
+    bool checkDoorCollision(Vector3& playerPos, float playerRadius, int* keycards, int numKeycards) {
+        Sphere playerSphere(playerPos, playerRadius);
+        
+        for (int i = 0; i < numDoors; i++) {
+            if (!doors[i].isOpen) {
+                // Check if player has keycard
+                if (doors[i].isLocked) {
+                    bool hasKey = false;
+                    for (int k = 0; k < numKeycards; k++) {
+                        if (keycards[k] == doors[i].requiredKeycard) {
+                            hasKey = true;
+                            break;
+                        }
+                    }
+                    if (hasKey) {
+                        doors[i].isLocked = false;
+                        doors[i].isOpen = true;
+                    }
+                } else {
+                    doors[i].isOpen = true;
+                }
+                
+                // Block if still locked
+                if (!doors[i].isOpen) {
+                    CollisionResult result = Collision::resolveSphereAABB(playerSphere, doors[i].bounds);
+                    if (result.hit) {
+                        playerPos = playerPos + result.normal * result.penetration;
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        return false;
+    }
+    
+    // Check interior wall collisions for player/enemies
+    bool checkInteriorWallCollision(Vector3& pos, float radius) {
+        // Only check interior walls in facility level
+        if (levelID != LEVEL_1_FACILITY) return false;
+        
+        bool collided = false;
+        Sphere entity(pos, radius);
+        float halfFloor = floorSize / 2.0f;
+        
+        // Interior wall AABBs - simplified collision volumes
+        // These match the visual walls drawn in drawFacilityWalls()
+        AABB interiorWalls[] = {
+            // === OUTER ARENA WALLS (prevent walking through boundary) ===
+            // North wall (back wall at z = -halfFloor)
+            AABB::fromCenter(Vector3(0, wallHeight/2, -halfFloor), Vector3(halfFloor, wallHeight/2, 1.0f)),
+            // South wall (front wall at z = +halfFloor)
+            AABB::fromCenter(Vector3(0, wallHeight/2, halfFloor), Vector3(halfFloor, wallHeight/2, 1.0f)),
+            // East wall (right wall at x = +halfFloor)
+            AABB::fromCenter(Vector3(halfFloor, wallHeight/2, 0), Vector3(1.0f, wallHeight/2, halfFloor)),
+            // West wall (left wall at x = -halfFloor)
+            AABB::fromCenter(Vector3(-halfFloor, wallHeight/2, 0), Vector3(1.0f, wallHeight/2, halfFloor)),
+            
+            // === INTERIOR WALLS ===
+            // Security (SW) - East wall
+            AABB::fromCenter(Vector3(-5, wallHeight/2, -20), Vector3(1.0f, wallHeight/2, 10)),
+            // Security (SW) - North wall
+            AABB::fromCenter(Vector3(-20, wallHeight/2, -5), Vector3(7.5f, wallHeight/2, 1.0f)),
+            // Research (NW) - South wall  
+            AABB::fromCenter(Vector3(-25, wallHeight/2, 5), Vector3(9, wallHeight/2, 1.0f)),
+            // Research (NW) - East wall
+            AABB::fromCenter(Vector3(-5, wallHeight/2, 20), Vector3(1.0f, wallHeight/2, 10)),
+            // Containment (SE) - West wall
+            AABB::fromCenter(Vector3(5, wallHeight/2, -20), Vector3(1.0f, wallHeight/2, 10)),
+            // Containment (SE) - North wall
+            AABB::fromCenter(Vector3(20, wallHeight/2, -5), Vector3(7.5f, wallHeight/2, 1.0f)),
+            // Reactor (NE) - South wall
+            AABB::fromCenter(Vector3(25, wallHeight/2, 5), Vector3(6, wallHeight/2, 1.0f)),
+            // Reactor (NE) - West wall
+            AABB::fromCenter(Vector3(5, wallHeight/2, 20), Vector3(1.0f, wallHeight/2, 8))
+        };
+        
+        int numWalls = sizeof(interiorWalls) / sizeof(AABB);
+        for (int i = 0; i < numWalls; i++) {
+            CollisionResult result = Collision::resolveSphereAABB(entity, interiorWalls[i]);
+            if (result.hit) {
+                pos = pos + result.normal * result.penetration;
+                collided = true;
+            }
+        }
+        
+        return collided;
+    }
+    
+    void drawFloor() {
+        if (levelID == LEVEL_1_FACILITY) {
+            drawFacilityFloor();
+        } else {
+            drawHellFloor();
+        }
+    }
+    
+    void drawFacilityFloor() {
+        glPushMatrix();
+        
+        float halfSize = floorSize / 2.0f;
+        
+        // Use the proper tiled floor from LowPolyModels
+        LowPolyModels::drawLevelFloor(floorSize, floorSize);
+        
+        // Draw sector markings on floor
+        glDisable(GL_LIGHTING);
+        
+        // Sector A - Security (SW) - Yellow marking
+        glColor3f(0.8f, 0.7f, 0.2f);
+        glBegin(GL_LINE_LOOP);
+        glVertex3f(-halfSize + 1, 0.02f, -halfSize + 1);
+        glVertex3f(-5, 0.02f, -halfSize + 1);
+        glVertex3f(-5, 0.02f, 5);
+        glVertex3f(-halfSize + 1, 0.02f, 5);
+        glEnd();
+        
+        // Sector B - Research (NW) - Blue marking
+        glColor3f(0.2f, 0.5f, 0.9f);
+        glBegin(GL_LINE_LOOP);
+        glVertex3f(-halfSize + 1, 0.02f, 5);
+        glVertex3f(-5, 0.02f, 5);
+        glVertex3f(-5, 0.02f, halfSize - 1);
+        glVertex3f(-halfSize + 1, 0.02f, halfSize - 1);
+        glEnd();
+        
+        // Sector C - Containment (SE) - Red marking
+        glColor3f(0.9f, 0.2f, 0.2f);
+        glBegin(GL_LINE_LOOP);
+        glVertex3f(5, 0.02f, -halfSize + 1);
+        glVertex3f(halfSize - 1, 0.02f, -halfSize + 1);
+        glVertex3f(halfSize - 1, 0.02f, 5);
+        glVertex3f(5, 0.02f, 5);
+        glEnd();
+        
+        // Sector D - Reactor (NE) - Green marking
+        glColor3f(0.2f, 0.9f, 0.3f);
+        glBegin(GL_LINE_LOOP);
+        glVertex3f(5, 0.02f, 5);
+        glVertex3f(halfSize - 1, 0.02f, 5);
+        glVertex3f(halfSize - 1, 0.02f, halfSize - 1);
+        glVertex3f(5, 0.02f, halfSize - 1);
+        glEnd();
+        
+        // Central corridor markings
+        glColor3f(0.4f, 0.4f, 0.5f);
+        glLineWidth(2.0f);
+        // Horizontal corridor
+        glBegin(GL_LINES);
+        glVertex3f(-halfSize + 1, 0.02f, -2);
+        glVertex3f(halfSize - 1, 0.02f, -2);
+        glVertex3f(-halfSize + 1, 0.02f, 2);
+        glVertex3f(halfSize - 1, 0.02f, 2);
+        glEnd();
+        // Vertical corridor
+        glBegin(GL_LINES);
+        glVertex3f(-2, 0.02f, -halfSize + 1);
+        glVertex3f(-2, 0.02f, halfSize - 1);
+        glVertex3f(2, 0.02f, -halfSize + 1);
+        glVertex3f(2, 0.02f, halfSize - 1);
+        glEnd();
+        glLineWidth(1.0f);
+        
+        glEnable(GL_LIGHTING);
+        glPopMatrix();
+    }
+    
+    void drawFacilityWalls() {
+        float halfSize = floorSize / 2.0f;
+        
+        // Use the proper detailed walls from LowPolyModels
+        LowPolyModels::drawArenaWalls(floorSize, floorSize, wallHeight);
+        
+        // Draw ceiling with lights
+        LowPolyModels::drawCeiling(floorSize, floorSize, wallHeight);
+        
+        // =====================================================
+        // INTERIOR WALLS - Create actual lab rooms
+        // =====================================================
+        
+        // --- SECTOR A: Security Checkpoint (SW) ---
+        // East wall of security
+        LowPolyModels::drawWallSegment(-5, -20, 90, 20, wallHeight);
+        // North wall of security (partial - with door gap)
+        LowPolyModels::drawWallSegment(-20, -5, 0, 15, wallHeight);
+        
+        // --- SECTOR B: Research Labs (NW) ---
+        // South wall of research
+        LowPolyModels::drawWallSegment(-25, 5, 0, 18, wallHeight);
+        // East wall of research (partial)
+        LowPolyModels::drawWallSegment(-5, 20, 90, 20, wallHeight);
+        // Internal lab divider
+        LowPolyModels::drawWallSegment(-20, 18, 0, 12, wallHeight * 0.6f);
+        
+        // --- SECTOR C: Containment (SE) ---
+        // West wall of containment
+        LowPolyModels::drawWallSegment(5, -20, 90, 20, wallHeight);
+        // North wall of containment (partial)
+        LowPolyModels::drawWallSegment(20, -5, 0, 15, wallHeight);
+        // Containment cells internal walls
+        LowPolyModels::drawWallSegment(15, -20, 0, 8, wallHeight * 0.7f);
+        LowPolyModels::drawWallSegment(25, -20, 0, 8, wallHeight * 0.7f);
+        
+        // --- SECTOR D: Reactor Core (NE) ---
+        // South wall of reactor (with gap for door)
+        LowPolyModels::drawWallSegment(25, 5, 0, 12, wallHeight);
+        // West wall of reactor (partial)
+        LowPolyModels::drawWallSegment(5, 20, 90, 16, wallHeight);
+        
+        // =====================================================
+        // LAB EQUIPMENT AND DECORATIONS
+        // =====================================================
+        DEBUG_LOG("Level: Starting drawLabEquipment\n");
+        drawLabEquipment();
+        DEBUG_LOG("Level: Finished drawLabEquipment\n");
+    }
+    
+    void drawLabEquipment() {
+        DEBUG_LOG("drawLabEquipment: START\n");
+        float halfSize = floorSize / 2.0f;
+        
+        // --- SECURITY SECTOR (SW) ---
+        DEBUG_LOG("drawLabEquipment: Security desk\n");
+        glPushMatrix();
+        glTranslatef(-30, 0, -25);
+        drawSecurityDesk();
+        glPopMatrix();
+        
+        DEBUG_LOG("drawLabEquipment: Monitor bank\n");
+        glPushMatrix();
+        glTranslatef(-35, 0, -30);
+        drawMonitorBank(3);
+        glPopMatrix();
+        
+        // --- RESEARCH SECTOR (NW) ---
+        DEBUG_LOG("drawLabEquipment: Lab bench 1\n");
+        glPushMatrix();
+        glTranslatef(-30, 0, 20);
+        drawLabBench();
+        glPopMatrix();
+        
+        DEBUG_LOG("drawLabEquipment: Lab bench 2\n");
+        glPushMatrix();
+        glTranslatef(-20, 0, 25);
+        drawLabBench();
+        glPopMatrix();
+        
+        DEBUG_LOG("drawLabEquipment: Specimen tube 1\n");
+        glPushMatrix();
+        glTranslatef(-35, 0, 30);
+        drawSpecimenTube(true);
+        glPopMatrix();
+        
+        DEBUG_LOG("drawLabEquipment: Specimen tube 2\n");
+        glPushMatrix();
+        glTranslatef(-32, 0, 30);
+        drawSpecimenTube(false);
+        glPopMatrix();
+        
+        DEBUG_LOG("drawLabEquipment: Specimen tube 3\n");
+        glPushMatrix();
+        glTranslatef(-29, 0, 30);
+        drawSpecimenTube(true);
+        glPopMatrix();
+        
+        DEBUG_LOG("drawLabEquipment: Computer terminal\n");
+        glPushMatrix();
+        glTranslatef(-25, 0, 12);
+        drawComputerTerminal();
+        glPopMatrix();
+        
+        // --- CONTAINMENT SECTOR (SE) ---
+        DEBUG_LOG("drawLabEquipment: Containment cells\n");
+        for (int i = 0; i < 3; i++) {
+            DEBUG_LOG("drawLabEquipment: Containment cell");
+            glPushMatrix();
+            glTranslatef(20 + i * 5, 0, -25);
+            drawContainmentCell(i == 1);
+            glPopMatrix();
+        }
+        
+        DEBUG_LOG("drawLabEquipment: Warning light\n");
+        glPushMatrix();
+        glTranslatef(25, wallHeight - 1.5f, -15);
+        drawWarningLight();
+        glPopMatrix();
+        
+        // --- REACTOR SECTOR (NE) ---
+        DEBUG_LOG("drawLabEquipment: Server racks\n");
+        for (int i = 0; i < 3; i++) {
+            DEBUG_LOG("drawLabEquipment: Server rack");
+            glPushMatrix();
+            glTranslatef(30 + i * 2.5f, 0, 12);
+            drawServerRack();
+            glPopMatrix();
+        }
+        
+        DEBUG_LOG("drawLabEquipment: Reactor pipes\n");
+        drawReactorPipes();
+        
+        DEBUG_LOG("drawLabEquipment: Power conduits\n");
+        drawPowerConduits();
+        
+        // --- CENTRAL CORRIDOR ---
+        DEBUG_LOG("drawLabEquipment: Pillars\n");
+        for (int x = -1; x <= 1; x += 2) {
+            for (int z = -1; z <= 1; z += 2) {
+                glPushMatrix();
+                glTranslatef(x * 3.0f, 0, z * 3.0f);
+                LowPolyModels::drawPillar(wallHeight);
+                glPopMatrix();
+            }
+        }
+        
+        // Emergency lighting strips along corridors
+        drawEmergencyLighting();
+    }
+    
+    // Simplified lab equipment - uses only basic primitives to avoid crashes
+    void drawSimplifiedLabEquipment() {
+        // --- SECURITY SECTOR (SW) ---
+        // Simple desk
+        glPushMatrix();
+        glTranslatef(-30, 0.5f, -25);
+        LowPolyModels::setColorMetallic(0.25f, 0.28f, 0.32f);
+        LowPolyModels::drawBox(3.0f, 1.0f, 1.5f);
+        glPopMatrix();
+        
+        // --- RESEARCH SECTOR (NW) ---
+        // Lab tables
+        glPushMatrix();
+        glTranslatef(-30, 0.5f, 20);
+        LowPolyModels::setColorMetallic(0.5f, 0.52f, 0.55f);
+        LowPolyModels::drawBox(2.5f, 1.0f, 1.2f);
+        glPopMatrix();
+        
+        glPushMatrix();
+        glTranslatef(-20, 0.5f, 25);
+        LowPolyModels::drawBox(2.5f, 1.0f, 1.2f);
+        glPopMatrix();
+        
+        // Simple specimen containers (boxes instead of tubes)
+        for (int i = 0; i < 3; i++) {
+            glPushMatrix();
+            glTranslatef(-35 + i * 3, 1.25f, 30);
+            LowPolyModels::setColor(0.3f, 0.5f, 0.6f);
+            LowPolyModels::drawBox(0.8f, 2.5f, 0.8f);
+            glPopMatrix();
+        }
+        
+        // --- CONTAINMENT SECTOR (SE) ---
+        // Simple containment cells (just walls)
+        for (int i = 0; i < 3; i++) {
+            glPushMatrix();
+            glTranslatef(20 + i * 5, 1.5f, -25);
+            LowPolyModels::setColorMetallic(0.3f, 0.32f, 0.35f);
+            LowPolyModels::drawBox(3.0f, 3.0f, 0.2f);
+            glPopMatrix();
+        }
+        
+        // --- REACTOR SECTOR (NE) ---
+        // Server racks (simple boxes)
+        for (int i = 0; i < 3; i++) {
+            glPushMatrix();
+            glTranslatef(30 + i * 2.5f, 2.0f, 12);
+            LowPolyModels::setColorMetallic(0.18f, 0.18f, 0.2f);
+            LowPolyModels::drawBox(0.8f, 4.0f, 1.0f);
+            glPopMatrix();
+        }
+        
+        // --- CENTRAL CORRIDOR ---
+        // Pillars at intersections
+        for (int x = -1; x <= 1; x += 2) {
+            for (int z = -1; z <= 1; z += 2) {
+                glPushMatrix();
+                glTranslatef(x * 3.0f, 0, z * 3.0f);
+                LowPolyModels::drawPillar(wallHeight);
+                glPopMatrix();
+            }
+        }
+    }
+
+    // Lab equipment drawing functions
+    void drawSecurityDesk() {
+        // Desk surface
+        LowPolyModels::setColorMetallic(0.25f, 0.28f, 0.32f);
+        glPushMatrix();
+        glTranslatef(0, 1.0f, 0);
+        LowPolyModels::drawBox(3.0f, 0.15f, 1.5f);
+        glPopMatrix();
+        
+        // Desk supports
+        LowPolyModels::setColorMetallic(0.2f, 0.22f, 0.26f);
+        glPushMatrix();
+        glTranslatef(-1.2f, 0.5f, 0);
+        LowPolyModels::drawBox(0.15f, 1.0f, 1.3f);
+        glPopMatrix();
+        glPushMatrix();
+        glTranslatef(1.2f, 0.5f, 0);
+        LowPolyModels::drawBox(0.15f, 1.0f, 1.3f);
+        glPopMatrix();
+        
+        // Monitor on desk
+        glPushMatrix();
+        glTranslatef(0, 1.3f, -0.3f);
+        drawMonitor();
+        glPopMatrix();
+    }
+    
+    void drawMonitor() {
+        // Screen housing
+        LowPolyModels::setColorMetallic(0.15f, 0.15f, 0.18f);
+        LowPolyModels::drawBox(0.8f, 0.5f, 0.08f);
+        
+        // Screen
+        float pulse = sin(levelTime * 2) * 0.1f + 0.9f;
+        LowPolyModels::setColor(0.1f * pulse, 0.3f * pulse, 0.4f * pulse);
+        GLfloat emission[] = {0.05f * pulse, 0.15f * pulse, 0.2f * pulse, 1.0f};
+        glMaterialfv(GL_FRONT, GL_EMISSION, emission);
+        glPushMatrix();
+        glTranslatef(0, 0, 0.045f);
+        LowPolyModels::drawBox(0.7f, 0.4f, 0.01f);
+        glPopMatrix();
+        GLfloat noEmission[] = {0, 0, 0, 1};
+        glMaterialfv(GL_FRONT, GL_EMISSION, noEmission);
+        
+        // Stand
+        LowPolyModels::setColorMetallic(0.2f, 0.2f, 0.22f);
+        glPushMatrix();
+        glTranslatef(0, -0.35f, 0);
+        LowPolyModels::drawBox(0.15f, 0.2f, 0.1f);
+        glPopMatrix();
+    }
+    
+    void drawMonitorBank(int count) {
+        for (int i = 0; i < count; i++) {
+            glPushMatrix();
+            glTranslatef(i * 1.0f, 1.5f, 0);
+            drawMonitor();
+            glPopMatrix();
+        }
+    }
+    
+    void drawLabBench() {
+        // Bench top
+        LowPolyModels::setColorMetallic(0.5f, 0.52f, 0.55f);
+        glPushMatrix();
+        glTranslatef(0, 1.0f, 0);
+        LowPolyModels::drawBox(2.5f, 0.1f, 1.2f);
+        glPopMatrix();
+        
+        // Legs
+        LowPolyModels::setColorMetallic(0.3f, 0.32f, 0.35f);
+        float legX[] = {-1.0f, 1.0f};
+        float legZ[] = {-0.4f, 0.4f};
+        for (int x = 0; x < 2; x++) {
+            for (int z = 0; z < 2; z++) {
+                glPushMatrix();
+                glTranslatef(legX[x], 0.5f, legZ[z]);
+                LowPolyModels::drawBox(0.1f, 1.0f, 0.1f);
+                glPopMatrix();
+            }
+        }
+        
+        // Equipment on bench (beakers, etc)
+        LowPolyModels::setColor(0.7f, 0.8f, 0.9f);
+        glPushMatrix();
+        glTranslatef(-0.5f, 1.2f, 0);
+        glRotatef(-90, 1, 0, 0); // Make beaker vertical
+        GLUquadric* quad = gluNewQuadric();
+        if (quad) {
+            gluCylinder(quad, 0.08f, 0.06f, 0.25f, 8, 1);
+            gluDeleteQuadric(quad);
+        }
+        glPopMatrix();
+        
+        // Glowing liquid
+        LowPolyModels::setColor(0.2f, 0.9f, 0.3f);
+        GLfloat liquidEmit[] = {0.1f, 0.4f, 0.15f, 1.0f};
+        glMaterialfv(GL_FRONT, GL_EMISSION, liquidEmit);
+        glPushMatrix();
+        glTranslatef(0.5f, 1.2f, 0);
+        glutSolidSphere(0.1f, 8, 8);
+        glPopMatrix();
+        GLfloat noEmit[] = {0, 0, 0, 1};
+        glMaterialfv(GL_FRONT, GL_EMISSION, noEmit);
+    }
+    
+    void drawSpecimenTube(bool hasSpecimen) {
+        // Glass tube - draw vertical
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glColor4f(0.5f, 0.7f, 0.8f, 0.3f);
+        
+        glPushMatrix();
+        glRotatef(-90, 1, 0, 0); // Rotate to make vertical
+        GLUquadric* quad = gluNewQuadric();
+        if (quad) {
+            gluCylinder(quad, 0.5f, 0.5f, 2.5f, 16, 1);
+            gluDeleteQuadric(quad);
+        }
+        glPopMatrix();
+        
+        glDisable(GL_BLEND);
+        
+        // Base
+        LowPolyModels::setColorMetallic(0.25f, 0.28f, 0.32f);
+        glPushMatrix();
+        glTranslatef(0, 0.15f, 0);
+        LowPolyModels::drawBox(1.2f, 0.3f, 1.2f);
+        glPopMatrix();
+        
+        // Top cap
+        glPushMatrix();
+        glTranslatef(0, 2.65f, 0);
+        LowPolyModels::drawBox(1.0f, 0.2f, 1.0f);
+        glPopMatrix();
+        
+        // Specimen inside (if present)
+        if (hasSpecimen) {
+            float pulse = sin(levelTime * 1.5f) * 0.1f + 0.9f;
+            LowPolyModels::setColor(0.6f * pulse, 0.2f * pulse, 0.2f * pulse);
+            GLfloat specEmit[] = {0.2f * pulse, 0.05f, 0.05f, 1.0f};
+            glMaterialfv(GL_FRONT, GL_EMISSION, specEmit);
+            glPushMatrix();
+            glTranslatef(0, 1.3f, 0);
+            glutSolidSphere(0.35f, 12, 12);
+            glPopMatrix();
+            GLfloat noEmit[] = {0, 0, 0, 1};
+            glMaterialfv(GL_FRONT, GL_EMISSION, noEmit);
+        }
+        
+        // Liquid glow at base
+        float glowPulse = sin(levelTime * 2 + 1) * 0.15f + 0.85f;
+        LowPolyModels::setColor(0.2f * glowPulse, 0.8f * glowPulse, 0.3f * glowPulse);
+        GLfloat baseEmit[] = {0.1f * glowPulse, 0.3f * glowPulse, 0.15f * glowPulse, 1.0f};
+        glMaterialfv(GL_FRONT, GL_EMISSION, baseEmit);
+        glPushMatrix();
+        glTranslatef(0, 0.5f, 0);
+        LowPolyModels::drawBox(0.9f, 0.4f, 0.9f);
+        glPopMatrix();
+        GLfloat noEmit2[] = {0, 0, 0, 1};
+        glMaterialfv(GL_FRONT, GL_EMISSION, noEmit2);
+    }
+    
+    void drawComputerTerminal() {
+        // Terminal housing
+        LowPolyModels::setColorMetallic(0.22f, 0.24f, 0.28f);
+        glPushMatrix();
+        glTranslatef(0, 0.8f, 0);
+        LowPolyModels::drawBox(0.8f, 1.6f, 0.6f);
+        glPopMatrix();
+        
+        // Screen
+        float pulse = sin(levelTime * 3 + 2) * 0.1f + 0.9f;
+        LowPolyModels::setColor(0.0f, 0.5f * pulse, 0.7f * pulse);
+        GLfloat screenEmit[] = {0.0f, 0.2f * pulse, 0.3f * pulse, 1.0f};
+        glMaterialfv(GL_FRONT, GL_EMISSION, screenEmit);
+        glPushMatrix();
+        glTranslatef(0, 1.2f, 0.31f);
+        LowPolyModels::drawBox(0.6f, 0.8f, 0.02f);
+        glPopMatrix();
+        GLfloat noEmit[] = {0, 0, 0, 1};
+        glMaterialfv(GL_FRONT, GL_EMISSION, noEmit);
+        
+        // Keyboard shelf
+        LowPolyModels::setColorMetallic(0.2f, 0.2f, 0.22f);
+        glPushMatrix();
+        glTranslatef(0, 0.9f, 0.45f);
+        LowPolyModels::drawBox(0.7f, 0.08f, 0.35f);
+        glPopMatrix();
+        
+        // Status lights
+        LowPolyModels::setColor(0.1f, 0.9f, 0.2f);
+        GLfloat greenEmit[] = {0.05f, 0.4f, 0.1f, 1.0f};
+        glMaterialfv(GL_FRONT, GL_EMISSION, greenEmit);
+        glPushMatrix();
+        glTranslatef(-0.25f, 0.3f, 0.31f);
+        glutSolidSphere(0.03f, 6, 6);
+        glPopMatrix();
+        
+        LowPolyModels::setColor(0.9f, 0.7f, 0.1f);
+        GLfloat yellowEmit[] = {0.4f, 0.3f, 0.05f, 1.0f};
+        glMaterialfv(GL_FRONT, GL_EMISSION, yellowEmit);
+        glPushMatrix();
+        glTranslatef(0, 0.3f, 0.31f);
+        glutSolidSphere(0.03f, 6, 6);
+        glPopMatrix();
+        glMaterialfv(GL_FRONT, GL_EMISSION, noEmit);
+    }
+    
+    void drawContainmentCell(bool breached) {
+        // Cell walls
+        LowPolyModels::setColorMetallic(0.3f, 0.32f, 0.35f);
+        
+        // Back wall
+        glPushMatrix();
+        glTranslatef(0, 1.5f, -1.5f);
+        LowPolyModels::drawBox(3.0f, 3.0f, 0.2f);
+        glPopMatrix();
+        
+        // Side walls
+        glPushMatrix();
+        glTranslatef(-1.4f, 1.5f, 0);
+        LowPolyModels::drawBox(0.2f, 3.0f, 3.0f);
+        glPopMatrix();
+        glPushMatrix();
+        glTranslatef(1.4f, 1.5f, 0);
+        LowPolyModels::drawBox(0.2f, 3.0f, 3.0f);
+        glPopMatrix();
+        
+        // Energy barrier (front)
+        if (!breached) {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+            float pulse = sin(levelTime * 4) * 0.2f + 0.8f;
+            glColor4f(0.2f * pulse, 0.5f * pulse, 0.9f * pulse, 0.4f);
+            glPushMatrix();
+            glTranslatef(0, 1.5f, 1.3f);
+            LowPolyModels::drawBox(2.6f, 2.8f, 0.05f);
+            glPopMatrix();
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glDisable(GL_BLEND);
+        } else {
+            // Broken barrier effect - sparks
+            float sparkPhase = fmod(levelTime * 5, 1.0f);
+            if (sparkPhase < 0.3f) {
+                glDisable(GL_LIGHTING);
+                glPointSize(3.0f);
+                glBegin(GL_POINTS);
+                for (int i = 0; i < 5; i++) {
+                    float px = -1.0f + (float)(rand() % 20) / 10.0f;
+                    float py = 0.5f + (float)(rand() % 20) / 10.0f;
+                    glColor3f(0.3f + sparkPhase, 0.5f + sparkPhase * 0.5f, 1.0f);
+                    glVertex3f(px, py, 1.3f);
+                }
+                glEnd();
+                glEnable(GL_LIGHTING);
+            }
+        }
+    }
+    
+    void drawWarningLight() {
+        float flash = sin(levelTime * 8) > 0 ? 1.0f : 0.3f;
+        
+        // Housing
+        LowPolyModels::setColorMetallic(0.2f, 0.2f, 0.22f);
+        LowPolyModels::drawBox(0.3f, 0.2f, 0.3f);
+        
+        // Light
+        LowPolyModels::setColor(0.9f * flash, 0.2f * flash, 0.1f * flash);
+        GLfloat redEmit[] = {0.5f * flash, 0.1f * flash, 0.05f * flash, 1.0f};
+        glMaterialfv(GL_FRONT, GL_EMISSION, redEmit);
+        glPushMatrix();
+        glTranslatef(0, -0.15f, 0);
+        glutSolidSphere(0.12f, 8, 8);
+        glPopMatrix();
+        GLfloat noEmit[] = {0, 0, 0, 1};
+        glMaterialfv(GL_FRONT, GL_EMISSION, noEmit);
+    }
+    
+    void drawServerRack() {
+        // Main rack
+        LowPolyModels::setColorMetallic(0.18f, 0.18f, 0.2f);
+        glPushMatrix();
+        glTranslatef(0, 2.0f, 0);
+        LowPolyModels::drawBox(0.8f, 4.0f, 1.0f);
+        glPopMatrix();
+        
+        // Server units with blinking lights
+        for (int i = 0; i < 8; i++) {
+            float y = 0.4f + i * 0.45f;
+            
+            // Unit
+            LowPolyModels::setColorMetallic(0.15f, 0.15f, 0.17f);
+            glPushMatrix();
+            glTranslatef(0, y, 0);
+            LowPolyModels::drawBox(0.75f, 0.35f, 0.95f);
+            glPopMatrix();
+            
+            // Status lights
+            float phase = sin(levelTime * 3 + i * 0.7f);
+            if (phase > 0) {
+                LowPolyModels::setColor(0.1f, 0.9f, 0.2f);
+            } else {
+                LowPolyModels::setColor(0.9f, 0.6f, 0.1f);
+            }
+            GLfloat lightEmit[] = {phase > 0 ? 0.05f : 0.4f, phase > 0 ? 0.4f : 0.25f, phase > 0 ? 0.1f : 0.05f, 1.0f};
+            glMaterialfv(GL_FRONT, GL_EMISSION, lightEmit);
+            glPushMatrix();
+            glTranslatef(-0.3f, y, 0.48f);
+            glutSolidSphere(0.02f, 6, 6);
+            glPopMatrix();
+            GLfloat noEmit[] = {0, 0, 0, 1};
+            glMaterialfv(GL_FRONT, GL_EMISSION, noEmit);
+        }
+    }
+    
+    void drawReactorPipes() {
+        float halfSize = floorSize / 2.0f;
+        
+        // Large pipes along reactor walls
+        LowPolyModels::setColorMetallic(0.35f, 0.38f, 0.42f);
+        
+        GLUquadric* quad = gluNewQuadric();
+        if (!quad) return; // Safety check
+        
+        // Horizontal pipes near ceiling
+        glPushMatrix();
+        glTranslatef(10, wallHeight - 1.5f, 20);
+        glRotatef(90, 0, 1, 0);
+        gluCylinder(quad, 0.4f, 0.4f, 25, 12, 1);
+        glPopMatrix();
+        
+        // Vertical pipes
+        glPushMatrix();
+        glTranslatef(25, 0, 30);
+        glRotatef(-90, 1, 0, 0);
+        gluCylinder(quad, 0.35f, 0.35f, wallHeight, 12, 1);
+        glPopMatrix();
+        
+        glPushMatrix();
+        glTranslatef(35, 0, 30);
+        glRotatef(-90, 1, 0, 0);
+        gluCylinder(quad, 0.35f, 0.35f, wallHeight, 12, 1);
+        glPopMatrix();
+        
+        gluDeleteQuadric(quad);
+        
+        // Pipe joints (glowing)
+        float pulse = sin(levelTime * 2) * 0.15f + 0.85f;
+        LowPolyModels::setColor(0.2f * pulse, 0.6f * pulse, 0.9f * pulse);
+        GLfloat pipeEmit[] = {0.1f * pulse, 0.3f * pulse, 0.45f * pulse, 1.0f};
+        glMaterialfv(GL_FRONT, GL_EMISSION, pipeEmit);
+        
+        glPushMatrix();
+        glTranslatef(25, wallHeight - 1.5f, 30);
+        glutSolidSphere(0.5f, 10, 10);
+        glPopMatrix();
+        
+        glPushMatrix();
+        glTranslatef(35, wallHeight - 1.5f, 30);
+        glutSolidSphere(0.5f, 10, 10);
+        glPopMatrix();
+        
+        GLfloat noEmit[] = {0, 0, 0, 1};
+        glMaterialfv(GL_FRONT, GL_EMISSION, noEmit);
+    }
+    
+    void drawPowerConduits() {
+        float halfSize = floorSize / 2.0f;
+        
+        // Conduits run along floor edges with glowing cores
+        float pulse = sin(levelTime * 3) * 0.1f + 0.9f;
+        
+        // Draw conduit strips
+        glDisable(GL_LIGHTING);
+        glLineWidth(3.0f);
+        
+        // North wall conduit
+        glColor3f(0.0f, 0.4f * pulse, 0.6f * pulse);
+        glBegin(GL_LINE_STRIP);
+        for (float x = -halfSize + 2; x < halfSize - 2; x += 0.5f) {
+            float glow = sin(levelTime * 4 + x * 0.5f) * 0.3f + 0.7f;
+            glColor3f(0.0f, 0.4f * glow, 0.6f * glow);
+            glVertex3f(x, 0.3f, -halfSize + 1);
+        }
+        glEnd();
+        
+        // South wall conduit
+        glBegin(GL_LINE_STRIP);
+        for (float x = -halfSize + 2; x < halfSize - 2; x += 0.5f) {
+            float glow = sin(levelTime * 4 + x * 0.5f + 1) * 0.3f + 0.7f;
+            glColor3f(0.0f, 0.4f * glow, 0.6f * glow);
+            glVertex3f(x, 0.3f, halfSize - 1);
+        }
+        glEnd();
+        
+        glLineWidth(1.0f);
+        glEnable(GL_LIGHTING);
+    }
+    
+    void drawEmergencyLighting() {
+        // Emergency floor lights in corridors
+        float halfSize = floorSize / 2.0f;
+        
+        glDisable(GL_LIGHTING);
+        
+        // Main corridor lights
+        float pulse = sin(levelTime) * 0.2f + 0.8f;
+        
+        glPointSize(4.0f);
+        glBegin(GL_POINTS);
+        
+        // Horizontal corridor
+        for (float x = -halfSize + 5; x < halfSize - 5; x += 4) {
+            float glow = sin(levelTime * 2 + x * 0.3f) * 0.3f + 0.7f;
+            glColor3f(0.9f * glow, 0.5f * glow, 0.1f * glow);
+            glVertex3f(x, 0.05f, -1.5f);
+            glVertex3f(x, 0.05f, 1.5f);
+        }
+        
+        // Vertical corridor
+        for (float z = -halfSize + 5; z < halfSize - 5; z += 4) {
+            float glow = sin(levelTime * 2 + z * 0.3f) * 0.3f + 0.7f;
+            glColor3f(0.9f * glow, 0.5f * glow, 0.1f * glow);
+            glVertex3f(-1.5f, 0.05f, z);
+            glVertex3f(1.5f, 0.05f, z);
+        }
+        
+        glEnd();
+        glPointSize(1.0f);
+        glEnable(GL_LIGHTING);
+    }
+    
+    void drawHellFloor() {
+        glPushMatrix();
+        
+        // Rocky ground with lava cracks
+        LowPolyModels::setColor(Colors::HELL_FLOOR[0], Colors::HELL_FLOOR[1], Colors::HELL_FLOOR[2]);
+        glBegin(GL_QUADS);
+        glNormal3f(0, 1, 0);
+        glVertex3f(-floorSize/2, lavaHeight - 0.5f, -floorSize/2);
+        glVertex3f(floorSize/2, lavaHeight - 0.5f, -floorSize/2);
+        glVertex3f(floorSize/2, lavaHeight - 0.5f, floorSize/2);
+        glVertex3f(-floorSize/2, lavaHeight - 0.5f, floorSize/2);
+        glEnd();
+        
+        // Lava layer
+        glDisable(GL_LIGHTING);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        
+        float lavaGlow = sin(levelTime * 2.0f) * 0.2f + 0.8f;
+        glColor4f(1.0f * lavaGlow, 0.3f * lavaGlow, 0.0f, 0.8f);
+        
+        glBegin(GL_QUADS);
+        glVertex3f(-floorSize/2, lavaHeight, -floorSize/2);
+        glVertex3f(floorSize/2, lavaHeight, -floorSize/2);
+        glVertex3f(floorSize/2, lavaHeight, floorSize/2);
+        glVertex3f(-floorSize/2, lavaHeight, floorSize/2);
+        glEnd();
+        
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDisable(GL_BLEND);
+        glEnable(GL_LIGHTING);
+        
+        glPopMatrix();
+    }
+    
+    void drawWalls() {
+        DEBUG_LOG("Level::drawWalls START\n");
+        if (levelID == LEVEL_1_FACILITY) {
+            DEBUG_LOG("Level::drawWalls calling drawFacilityWalls\n");
+            drawFacilityWalls();
+            DEBUG_LOG("Level::drawWalls drawFacilityWalls done\n");
+        }
+        // Level 2 has no walls (outdoor)
+        DEBUG_LOG("Level::drawWalls COMPLETE\n");
+    }
+    
+    void drawObjective() {
+        glPushMatrix();
+        glTranslatef(objective.x, objective.y, objective.z);
+        
+        if (levelID == LEVEL_1_FACILITY) {
+            // Portal/reactor device
+            float pulse = sin(levelTime * 3.0f) * 0.3f + 0.7f;
+            
+            // Base
+            LowPolyModels::setColor(0.2f, 0.2f, 0.25f);
+            glPushMatrix();
+            glTranslatef(0, 0.25f, 0);
+            LowPolyModels::drawBox(3.0f, 0.5f, 3.0f);
+            glPopMatrix();
+            
+            // Core
+            LowPolyModels::setColor(0.0f * pulse, 0.6f * pulse, 0.8f * pulse);
+            glPushMatrix();
+            glTranslatef(0, 1.5f, 0);
+            glRotatef(levelTime * 50.0f, 0, 1, 0);
+            glutSolidSphere(0.8f, 16, 16);
+            glPopMatrix();
+            
+            // Ring
+            LowPolyModels::setColor(0.0f, 0.8f * pulse, 1.0f * pulse);
+            glPushMatrix();
+            glTranslatef(0, 1.5f, 0);
+            glRotatef(90, 1, 0, 0);
+            glRotatef(levelTime * 30.0f, 0, 0, 1);
+            glutSolidTorus(0.1f, 1.5f, 8, 24);
+            glPopMatrix();
+            
+        } else {
+            // Hell obelisk
+            float glowIntensity = sin(levelTime * 2.0f) * 0.3f + 0.7f;
+            LowPolyModels::drawObelisk(glowIntensity);
+        }
+        
+        glPopMatrix();
+    }
+    
+    // Draw a glowing path guide to the exit door - HIGHLY VISIBLE
+    void drawGlowingPathToExit() {
+        // Path from PLAYER'S CURRENT POSITION towards exit door (not spawn!)
+        Vector3 start = lastPlayerPos;  // Use current player position!
+        start.y = 0.0f;  // Floor level
+        Vector3 end = exitDoor.position;
+        end.y = 0.0f;
+        
+        // Calculate path direction and distance
+        Vector3 pathDir = end - start;
+        float pathLength = pathDir.length();
+        if (pathLength < 1.0f) return; // Already at exit
+        pathDir = pathDir.normalize();
+        
+        float time = levelTime;
+        
+        glDisable(GL_LIGHTING);
+        glDisable(GL_DEPTH_TEST); // Draw on top of everything
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        
+        // MUCH MORE segments for continuous path
+        int numSegments = (int)(pathLength / 0.8f);
+        if (numSegments < 20) numSegments = 20;
+        if (numSegments > 100) numSegments = 100;
+        
+        float segmentLength = pathLength / numSegments;
+        
+        // Animated wave moving towards exit - FASTER
+        float waveSpeed = 4.0f;
+        float wavePhase = fmod(time * waveSpeed, (float)numSegments);
+        
+        // Calculate rotation angle once
+        float angle = atan2(pathDir.x, pathDir.z) * 180.0f / 3.14159f;
+        
+        for (int i = 0; i < numSegments; i++) {
+            float t = (float)i / (float)(numSegments - 1);
+            Vector3 pos = start + pathDir * (t * pathLength);
+            
+            // Wave animation - lights pulse in sequence towards exit
+            float distFromWave = fmod(i - wavePhase + numSegments, (float)numSegments);
+            float waveIntensity = 0.0f;
+            
+            if (distFromWave < 8.0f) {
+                waveIntensity = 1.0f - distFromWave / 8.0f;
+            }
+            
+            // BRIGHT base glow with wave overlay
+            float baseGlow = 0.6f + sin(time * 4.0f + i * 0.2f) * 0.2f;
+            float totalIntensity = baseGlow + waveIntensity * 0.4f;
+            if (totalIntensity > 1.0f) totalIntensity = 1.0f;
+            
+            // ====== FLOOR LIGHT STRIP ======
+            glPushMatrix();
+            glTranslatef(pos.x, 0.05f, pos.z);
+            glRotatef(angle, 0, 1, 0);
+            
+            // Main light strip segment - MUCH WIDER
+            glColor4f(0.2f * totalIntensity, 1.0f * totalIntensity, 0.4f * totalIntensity, 0.9f);
+            glBegin(GL_QUADS);
+            glVertex3f(-0.4f, 0, -segmentLength * 0.5f);
+            glVertex3f(0.4f, 0, -segmentLength * 0.5f);
+            glVertex3f(0.4f, 0, segmentLength * 0.5f);
+            glVertex3f(-0.4f, 0, segmentLength * 0.5f);
+            glEnd();
+            
+            // Outer glow - WIDER
+            glColor4f(0.1f * totalIntensity, 0.7f * totalIntensity, 0.25f * totalIntensity, 0.4f * totalIntensity);
+            glBegin(GL_QUADS);
+            glVertex3f(-1.2f, 0.02f, -segmentLength * 0.6f);
+            glVertex3f(1.2f, 0.02f, -segmentLength * 0.6f);
+            glVertex3f(1.2f, 0.02f, segmentLength * 0.6f);
+            glVertex3f(-1.2f, 0.02f, segmentLength * 0.6f);
+            glEnd();
+            
+            glPopMatrix();
+            
+            // ====== VERTICAL LIGHT BEACONS every few segments ======
+            if (i % 8 == 0 && i > 0) {
+                float beaconPulse = sin(time * 5.0f + i * 0.5f) * 0.3f + 0.7f;
+                float beaconHeight = 3.0f + sin(time * 2.0f + i) * 0.5f;
+                
+                // Vertical light beam
+                glPushMatrix();
+                glTranslatef(pos.x, 0, pos.z);
+                
+                // Draw vertical beam
+                glColor4f(0.1f * beaconPulse, 0.9f * beaconPulse, 0.3f * beaconPulse, 0.6f * beaconPulse);
+                glBegin(GL_QUADS);
+                // Front face
+                glVertex3f(-0.15f, 0, 0);
+                glVertex3f(0.15f, 0, 0);
+                glVertex3f(0.15f, beaconHeight, 0);
+                glVertex3f(-0.15f, beaconHeight, 0);
+                // Side face
+                glVertex3f(0, 0, -0.15f);
+                glVertex3f(0, 0, 0.15f);
+                glVertex3f(0, beaconHeight, 0.15f);
+                glVertex3f(0, beaconHeight, -0.15f);
+                glEnd();
+                
+                // Top glow sphere
+                glColor4f(0.3f * beaconPulse, 1.0f * beaconPulse, 0.5f * beaconPulse, 0.8f * beaconPulse);
+                glTranslatef(0, beaconHeight, 0);
+                glutSolidSphere(0.25f * beaconPulse, 8, 8);
+                
+                glPopMatrix();
+            }
+            
+            // ====== ARROW MARKERS every few segments ======
+            if (i % 6 == 3 && i < numSegments - 3) {
+                glPushMatrix();
+                glTranslatef(pos.x, 0.08f, pos.z);
+                glRotatef(angle, 0, 1, 0);
+                
+                // Arrow shape pointing towards exit - BIGGER
+                glColor4f(0.4f * totalIntensity, 1.0f * totalIntensity, 0.6f * totalIntensity, 0.9f);
+                glBegin(GL_TRIANGLES);
+                glVertex3f(-0.6f, 0, 0.4f);
+                glVertex3f(0.6f, 0, 0.4f);
+                glVertex3f(0.0f, 0, -0.8f);
+                glEnd();
+                
+                glPopMatrix();
+            }
+        }
+        
+        // ====== LARGE PULSING BEACON AT EXIT ======
+        float beaconPulse = sin(time * 4.0f) * 0.3f + 0.7f;
+        glPushMatrix();
+        glTranslatef(end.x, 0, end.z);
+        
+        // Large ground ring
+        glColor4f(0.2f * beaconPulse, 1.0f * beaconPulse, 0.4f * beaconPulse, 0.7f);
+        glBegin(GL_TRIANGLE_FAN);
+        glVertex3f(0, 0.05f, 0);
+        for (int a = 0; a <= 24; a++) {
+            float ang = a * 3.14159f * 2.0f / 24.0f;
+            float r = 3.0f * beaconPulse;
+            glVertex3f(cos(ang) * r, 0.05f, sin(ang) * r);
+        }
+        glEnd();
+        
+        // Inner bright ring
+        glColor4f(0.5f * beaconPulse, 1.0f * beaconPulse, 0.7f * beaconPulse, 0.9f);
+        glBegin(GL_TRIANGLE_FAN);
+        glVertex3f(0, 0.08f, 0);
+        for (int a = 0; a <= 24; a++) {
+            float ang = a * 3.14159f * 2.0f / 24.0f;
+            glVertex3f(cos(ang) * 1.5f, 0.08f, sin(ang) * 1.5f);
+        }
+        glEnd();
+        
+        // Tall vertical beacon at exit
+        float exitBeamHeight = 8.0f;
+        glColor4f(0.3f * beaconPulse, 1.0f * beaconPulse, 0.5f * beaconPulse, 0.5f);
+        glBegin(GL_QUADS);
+        glVertex3f(-0.3f, 0, -0.3f);
+        glVertex3f(0.3f, 0, -0.3f);
+        glVertex3f(0.3f, exitBeamHeight, -0.3f);
+        glVertex3f(-0.3f, exitBeamHeight, -0.3f);
+        
+        glVertex3f(-0.3f, 0, 0.3f);
+        glVertex3f(0.3f, 0, 0.3f);
+        glVertex3f(0.3f, exitBeamHeight, 0.3f);
+        glVertex3f(-0.3f, exitBeamHeight, 0.3f);
+        
+        glVertex3f(-0.3f, 0, -0.3f);
+        glVertex3f(-0.3f, 0, 0.3f);
+        glVertex3f(-0.3f, exitBeamHeight, 0.3f);
+        glVertex3f(-0.3f, exitBeamHeight, -0.3f);
+        
+        glVertex3f(0.3f, 0, -0.3f);
+        glVertex3f(0.3f, 0, 0.3f);
+        glVertex3f(0.3f, exitBeamHeight, 0.3f);
+        glVertex3f(0.3f, exitBeamHeight, -0.3f);
+        glEnd();
+        
+        glPopMatrix();
+        
+        // ====== "EXIT" TEXT INDICATOR floating above exit ======
+        glPushMatrix();
+        glTranslatef(end.x, 4.0f + sin(time * 2.0f) * 0.3f, end.z);
+        
+        // Billboard facing player
+        Vector3 toPlayer = lastPlayerPos - end;
+        toPlayer.y = 0;
+        float textAngle = atan2(toPlayer.x, toPlayer.z) * 180.0f / 3.14159f;
+        glRotatef(textAngle, 0, 1, 0);
+        
+        // Draw "EXIT" as a glowing panel
+        glColor4f(0.3f * beaconPulse, 1.0f * beaconPulse, 0.5f * beaconPulse, 0.9f);
+        glBegin(GL_QUADS);
+        glVertex3f(-1.5f, -0.4f, 0);
+        glVertex3f(1.5f, -0.4f, 0);
+        glVertex3f(1.5f, 0.4f, 0);
+        glVertex3f(-1.5f, 0.4f, 0);
+        glEnd();
+        
+        glPopMatrix();
+        
+        glEnable(GL_DEPTH_TEST);
+        glDisable(GL_BLEND);
+        glEnable(GL_LIGHTING);
+    }
+    
+    void draw() {
+        DEBUG_LOG("Level::draw START\n");
+        drawFloor();
+        DEBUG_LOG("Level::draw floor done\n");
+        drawWalls();
+        DEBUG_LOG("Level::draw walls done\n");
+        
+        // Draw platforms (with distance culling)
+        DEBUG_LOG("Level::draw platforms START\n");
+        for (int i = 0; i < numPlatforms; i++) {
+            // Distance culling
+            float dist = lastPlayerPos.distanceTo(platforms[i].center);
+            if (dist > drawDistance) continue;
+            
+            glPushMatrix();
+            glTranslatef(platforms[i].center.x, platforms[i].center.y, platforms[i].center.z);
+            
+            if (levelID == LEVEL_2_HELL_ARENA) {
+                // Draw as rocky platform
+                LowPolyModels::setColor(0.4f, 0.25f, 0.15f);
+            } else {
+                LowPolyModels::setColor(0.35f, 0.35f, 0.38f);
+            }
+            
+            LowPolyModels::drawPlatform(platforms[i].size.x, platforms[i].size.y, platforms[i].size.z);
+            glPopMatrix();
+        }
+        DEBUG_LOG("Level::draw platforms done\n");
+        
+        // Draw crates/rocks (with distance culling)
+        DEBUG_LOG("Level::draw crates START\n");
+        for (int i = 0; i < numCrates; i++) {
+            // Distance culling
+            float dist = lastPlayerPos.distanceTo(crates[i].position);
+            if (dist > drawDistance) continue;
+            
+            if (levelID == LEVEL_2_HELL_ARENA) {
+                glPushMatrix();
+                glTranslatef(crates[i].position.x, crates[i].position.y, crates[i].position.z);
+                LowPolyModels::drawLavaRock(crates[i].size);
+                glPopMatrix();
+            } else {
+                crates[i].draw();
+            }
+        }
+        DEBUG_LOG("Level::draw crates done\n");
+        
+        // Draw parkour obstacles (with distance culling)
+        DEBUG_LOG("Level::draw parkour obstacles START\n");
+        for (int i = 0; i < numParkourObstacles; i++) {
+            float dist = lastPlayerPos.distanceTo(parkourObstacles[i].position);
+            if (dist > drawDistance) continue;
+            parkourObstacles[i].draw();
+        }
+        DEBUG_LOG("Level::draw parkour obstacles done\n");
+        
+        // Draw doors (with distance culling)
+        DEBUG_LOG("Level::draw doors START\n");
+        for (int i = 0; i < numDoors; i++) {
+            float dist = lastPlayerPos.distanceTo(doors[i].position);
+            if (dist > drawDistance) continue;
+            doors[i].draw();
+        }
+        DEBUG_LOG("Level::draw doors done\n");
+        
+        // Draw exit door (if all enemies killed)
+        if (allEnemiesKilled || exitDoor.isActive) {
+            exitDoor.draw();
+            
+            // Draw glowing path guide to exit door when all enemies killed
+            if (allEnemiesKilled && exitDoor.isActive) {
+                drawGlowingPathToExit();
+            }
+        }
+        
+        // Draw enemies (with distance culling)
+        DEBUG_LOG("Level::draw enemies START\n");
+        for (int i = 0; i < numEnemies; i++) {
+            // Enemies have looser culling - they need to be visible from further
+            float dist = lastPlayerPos.distanceTo(enemies[i].position);
+            if (dist > drawDistance + 20.0f) continue;
+            enemies[i].draw();
+        }
+        DEBUG_LOG("Level::draw enemies done\n");
+        
+        // Draw collectibles (with distance culling)
+        DEBUG_LOG("Level::draw collectibles START\n");
+        for (int i = 0; i < numCollectibles; i++) {
+            float dist = lastPlayerPos.distanceTo(collectibles[i].position);
+            if (dist > drawDistance) continue;
+            collectibles[i].draw();
+        }
+        DEBUG_LOG("Level::draw collectibles done\n");
+        
+        // Draw objective
+        DEBUG_LOG("Level::draw objective START\n");
+        drawObjective();
+        DEBUG_LOG("Level::draw COMPLETE\n");
+    }
+    
+    bool isComplete() const {
+        return objectiveReached;
+    }
+    
+    bool isTimeUp() const {
+        return levelTime >= maxTime;
+    }
+    
+    int getRemainingTime() const {
+        return (int)(maxTime - levelTime);
+    }
+};
+
+#endif // LEVEL_H
