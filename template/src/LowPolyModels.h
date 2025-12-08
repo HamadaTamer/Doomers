@@ -71,7 +71,48 @@ namespace LowPolyModels {
             // Orient model - barrel points FORWARD (-Z)
             glRotatef(180, 0, 1, 0);  // Turn around to face forward
             glScalef(1.0f, 1.0f, 1.0f);  // Normal scale
+            
+            // Set up weapon illumination light BEFORE drawing
+            if (weaponLightOn) {
+                // Set material to preserve texture colors with moderate reflectivity
+                GLfloat matAmbient[] = {0.4f, 0.4f, 0.4f, 1.0f};
+                GLfloat matDiffuse[] = {0.8f, 0.8f, 0.8f, 1.0f};
+                GLfloat matSpec[] = {0.15f, 0.15f, 0.15f, 1.0f};
+                glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, matAmbient);
+                glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, matDiffuse);
+                glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, matSpec);
+                glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 10.0f);
+                
+                // Enable color material so texture colors work with lighting
+                glEnable(GL_COLOR_MATERIAL);
+                glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+                
+                // Main overhead light - simulates soft overhead/ceiling lighting
+                // Position: above and slightly in front of weapon for natural top-down illumination
+                GLfloat lightPos[] = {0.0f, 1.0f, -0.3f, 1.0f};  // Above and in front
+                GLfloat softAmbient[] = {0.25f, 0.25f, 0.27f, 1.0f};  // Low ambient to preserve texture detail
+                GLfloat softDiffuse[] = {0.6f, 0.6f, 0.65f, 1.0f};  // Moderate diffuse for natural shading
+                GLfloat lowSpecular[] = {0.1f, 0.1f, 0.1f, 1.0f};
+                
+                glEnable(GL_LIGHT7);
+                glLightfv(GL_LIGHT7, GL_POSITION, lightPos);
+                glLightfv(GL_LIGHT7, GL_AMBIENT, softAmbient);
+                glLightfv(GL_LIGHT7, GL_DIFFUSE, softDiffuse);
+                glLightfv(GL_LIGHT7, GL_SPECULAR, lowSpecular);
+                glLightf(GL_LIGHT7, GL_CONSTANT_ATTENUATION, 1.0f);
+                glLightf(GL_LIGHT7, GL_LINEAR_ATTENUATION, 0.0f);
+                glLightf(GL_LIGHT7, GL_QUADRATIC_ATTENUATION, 0.0f);
+            }
+            
+            // Draw the weapon model
             ModelLoader::draw(MODEL_AR_GUN, 1.0f);
+            
+            // Clean up lighting state when weapon light is on
+            if (weaponLightOn) {
+                glDisable(GL_LIGHT7);
+                glDisable(GL_COLOR_MATERIAL);
+            }
+            
             glPopMatrix();
         } else {
             WeaponModel::drawWeaponFirstPerson(recoil, bob, firing, weaponLightOn ? 1.0f : 0.0f);

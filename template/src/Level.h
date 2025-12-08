@@ -189,8 +189,18 @@ struct Crate {
             // Very slow rotation
             glRotatef(glowPhase * 8.0f, 0, 1, 0);
             
-            // Main crate with pulsing glow color - use texture if available
-            if (TextureManager::isLoaded(TEX_CRATE_SCIFI)) {
+            // Use 3D model if available, with pulsing color tint
+            if (ModelLoader::isLoaded(MODEL_CRATE)) {
+                // Apply pulsing blue-ish glow color
+                GLfloat mysteryColor[] = {0.5f + 0.3f * pulse, 0.6f + 0.3f * pulse, 0.9f + 0.1f * pulse, 1.0f};
+                GLfloat mysteryEmissive[] = {0.1f * pulse, 0.15f * pulse, 0.3f * pulse, 1.0f};
+                glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, mysteryColor);
+                glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, mysteryEmissive);
+                ModelLoader::draw(MODEL_CRATE, size * 1.2f);
+                // Clear emissive
+                GLfloat noEmissive[] = {0, 0, 0, 1};
+                glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, noEmissive);
+            } else if (TextureManager::isLoaded(TEX_CRATE_SCIFI)) {
                 glColor3f(0.5f + 0.3f * pulse, 0.6f + 0.3f * pulse, 0.9f + 0.1f * pulse);
                 TextureManager::drawTexturedBox(TEX_CRATE_SCIFI, 0, 0, 0, size, size, size, 0.5f);
             } else {
@@ -263,21 +273,37 @@ struct Crate {
             // OPENED BOX animation
             float lidAngle = openAnimProgress * 115.0f;
             
-            // Box base
-            LowPolyModels::setColorMetallic(0.18f, 0.2f, 0.24f);
-            glPushMatrix();
-            glScalef(1.0f, 0.6f, 1.0f);
-            LowPolyModels::drawSciFiCrate(size);
-            glPopMatrix();
+            // Box base - use 3D model if available
+            if (ModelLoader::isLoaded(MODEL_CRATE)) {
+                glPushMatrix();
+                glScalef(1.0f, 0.6f, 1.0f);
+                GLfloat openedColor[] = {0.4f, 0.45f, 0.5f, 1.0f};
+                glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, openedColor);
+                ModelLoader::draw(MODEL_CRATE, size * 1.2f);
+                glPopMatrix();
+            } else {
+                LowPolyModels::setColorMetallic(0.18f, 0.2f, 0.24f);
+                glPushMatrix();
+                glScalef(1.0f, 0.6f, 1.0f);
+                LowPolyModels::drawSciFiCrate(size);
+                glPopMatrix();
+            }
             
-            // Lid hinging open
+            // Lid hinging open - use 3D model scaled as lid if available
             glPushMatrix();
             glTranslatef(0, size * 0.3f, -size * 0.5f);
             glRotatef(-lidAngle, 1, 0, 0);
             glTranslatef(0, 0, size * 0.5f);
-            LowPolyModels::setColorMetallic(0.22f, 0.25f, 0.3f);
-            glScalef(1.0f, 0.15f, 1.0f);
-            LowPolyModels::drawBox(size, size * 0.3f, size);
+            if (ModelLoader::isLoaded(MODEL_CRATE)) {
+                glScalef(1.0f, 0.15f, 1.0f);
+                GLfloat lidColor[] = {0.45f, 0.5f, 0.55f, 1.0f};
+                glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, lidColor);
+                ModelLoader::draw(MODEL_CRATE, size * 1.2f);
+            } else {
+                LowPolyModels::setColorMetallic(0.22f, 0.25f, 0.3f);
+                glScalef(1.0f, 0.15f, 1.0f);
+                LowPolyModels::drawBox(size, size * 0.3f, size);
+            }
             glPopMatrix();
             
             // Light beam from inside when opening

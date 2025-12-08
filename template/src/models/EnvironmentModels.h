@@ -295,25 +295,25 @@ namespace EnvironmentModels {
     inline void drawDoor(bool isOpen, float openAmount) {
         glPushMatrix();
         
-        // Door frame
-        setColorMetallic(0.35f, 0.35f, 0.38f);
+        // Door frame - use textured box with TEX_WALL_GREY
+        glColor3f(0.9f, 0.9f, 0.9f);  // Slight tint
         
         // Left frame
         glPushMatrix();
         glTranslatef(-1.3f, 1.8f, 0);
-        drawBox(0.25f, 3.6f, 0.35f);
+        TextureManager::drawTexturedBox(TEX_WALL_GREY, 0, 0, 0, 0.25f, 3.6f, 0.35f, 1.0f);
         glPopMatrix();
         
         // Right frame
         glPushMatrix();
         glTranslatef(1.3f, 1.8f, 0);
-        drawBox(0.25f, 3.6f, 0.35f);
+        TextureManager::drawTexturedBox(TEX_WALL_GREY, 0, 0, 0, 0.25f, 3.6f, 0.35f, 1.0f);
         glPopMatrix();
         
         // Top frame
         glPushMatrix();
         glTranslatef(0, 3.7f, 0);
-        drawBox(2.85f, 0.25f, 0.35f);
+        TextureManager::drawTexturedBox(TEX_WALL_GREY, 0, 0, 0, 2.85f, 0.25f, 0.35f, 1.0f);
         glPopMatrix();
         
         // Warning stripes on frame
@@ -326,19 +326,19 @@ namespace EnvironmentModels {
             glPopMatrix();
         }
         
-        // Door panels (sliding)
-        setColorMetallic(0.28f, 0.3f, 0.35f);
+        // Door panels (sliding) - textured with TEX_WALL_PANEL
+        glColor3f(0.85f, 0.85f, 0.9f);  // Slight blue tint for sci-fi feel
         
         // Left door panel
         glPushMatrix();
         glTranslatef(-0.55f - openAmount * 0.6f, 1.75f, 0);
-        drawBox(1.0f, 3.3f, 0.15f);
-        // Panel details
-        setColorMetallic(0.22f, 0.24f, 0.28f);
+        TextureManager::drawTexturedBox(TEX_WALL_PANEL, 0, 0, 0, 1.0f, 3.3f, 0.15f, 0.5f);
+        // Panel details (inset, darker)
+        glColor3f(0.6f, 0.6f, 0.65f);
         for (int row = 0; row < 3; row++) {
             glPushMatrix();
             glTranslatef(0, 0.8f - row * 1.0f, 0.08f);
-            drawBox(0.7f, 0.7f, 0.02f);
+            TextureManager::drawTexturedBox(TEX_WALL_PANEL, 0, 0, 0, 0.7f, 0.7f, 0.02f, 0.3f);
             glPopMatrix();
         }
         glPopMatrix();
@@ -346,13 +346,13 @@ namespace EnvironmentModels {
         // Right door panel
         glPushMatrix();
         glTranslatef(0.55f + openAmount * 0.6f, 1.75f, 0);
-        setColorMetallic(0.28f, 0.3f, 0.35f);
-        drawBox(1.0f, 3.3f, 0.15f);
-        setColorMetallic(0.22f, 0.24f, 0.28f);
+        glColor3f(0.85f, 0.85f, 0.9f);
+        TextureManager::drawTexturedBox(TEX_WALL_PANEL, 0, 0, 0, 1.0f, 3.3f, 0.15f, 0.5f);
+        glColor3f(0.6f, 0.6f, 0.65f);
         for (int row = 0; row < 3; row++) {
             glPushMatrix();
             glTranslatef(0, 0.8f - row * 1.0f, 0.08f);
-            drawBox(0.7f, 0.7f, 0.02f);
+            TextureManager::drawTexturedBox(TEX_WALL_PANEL, 0, 0, 0, 0.7f, 0.7f, 0.02f, 0.3f);
             glPopMatrix();
         }
         glPopMatrix();
