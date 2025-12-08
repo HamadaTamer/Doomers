@@ -604,225 +604,460 @@ namespace EnemyModels {
         glPopMatrix();
     }
 
-    // ==================== BOSS ====================
+    // ==================== DOOM CYBERDEMON BOSS ====================
+    // Classic DOOM-style demon: Massive, muscular, with cybernetic enhancements
+    // Features: Goat legs with hooves, rocket launcher arm, massive horns, exposed muscles
     inline void drawBossDetailed(float rotY, float animPhase, float health, float maxHealth) {
         glPushMatrix();
         glRotatef(rotY, 0, 1, 0);
-        glScalef(BOSS_SCALE, BOSS_SCALE, BOSS_SCALE);
         
         float rage = 1.0f - (health / maxHealth);
-        float pulseGlow = (sin(getTime() * 4 + rage * 10) * 0.5f + 0.5f) * rage;
-        float breathe = sin(getTime() * 2) * 0.04f;
+        float time = getTime();
+        float pulse = sin(time * 3.0f) * 0.15f + 0.85f;
+        float breathe = sin(time * 1.5f) * 0.04f;
+        float walkBob = sin(animPhase * 2.0f) * 0.05f;
         
-        // Draw base demon structure with modifications
-        glPushMatrix();
-        glScalef(0.45f, 0.45f, 0.45f); // Scale down since we already scaled up
+        // Scale for MASSIVE boss - towering over player
+        glScalef(2.2f, 2.2f, 2.2f);
+        glTranslatef(0, walkBob, 0);
         
-        // Don't call drawDemonDetailed - draw custom boss
-        glPopMatrix();
-        
-        // === MASSIVE HOOVES ===
-        setColor(0.12f, 0.06f, 0.04f);
+        // =====================================================
+        // GOAT LEGS WITH HOOVES - Classic demon legs
+        // =====================================================
         for (int side = -1; side <= 1; side += 2) {
             glPushMatrix();
-            glTranslatef(side * 0.18f, 0.1f, 0);
-            drawBox(0.16f, 0.2f, 0.2f);
-            // Spikes on hooves
-            setColor(0.08f, 0.04f, 0.02f);
-            for (int s = 0; s < 3; s++) {
+            glTranslatef(side * 0.25f, 0, 0);
+            
+            float legSwing = sin(animPhase + (side > 0 ? 0 : 3.14159f)) * 20.0f;
+            glRotatef(legSwing, 1, 0, 0);
+            
+            // HOOVES - Cloven demon hooves
+            setColor(0.15f, 0.08f, 0.05f);
+            glPushMatrix();
+            glTranslatef(0, 0.08f, 0.05f);
+            // Hoof shape - two parts
+            for (int h = -1; h <= 1; h += 2) {
                 glPushMatrix();
-                glTranslatef(side * 0.06f, 0.05f + s * 0.05f, 0.08f);
-                drawCone(0.02f, 0.06f, 6);
+                glTranslatef(h * 0.04f, 0, 0);
+                drawBox(0.06f, 0.1f, 0.12f);
                 glPopMatrix();
             }
-            setColor(0.12f, 0.06f, 0.04f);
+            glPopMatrix();
+            
+            // Lower leg - backwards bent like goat
+            glPushMatrix();
+            glTranslatef(0, 0.35f, -0.1f);
+            glRotatef(30, 1, 0, 0);
+            setColor(0.55f, 0.25f, 0.2f); // Reddish demon flesh
+            drawBox(0.1f, 0.4f, 0.1f);
+            
+            // Exposed muscle/tendons
+            setColor(0.7f, 0.2f, 0.15f);
+            glPushMatrix();
+            glTranslatef(-0.06f, 0, 0.04f);
+            drawBox(0.03f, 0.35f, 0.03f);
+            glPopMatrix();
+            glPopMatrix();
+            
+            // Knee joint
+            setColor(0.5f, 0.2f, 0.18f);
+            glPushMatrix();
+            glTranslatef(0, 0.55f, -0.15f);
+            drawSphere(0.12f, 8);
+            glPopMatrix();
+            
+            // Upper leg - thick and muscular
+            glPushMatrix();
+            glTranslatef(0, 0.85f, 0);
+            glRotatef(-15, 1, 0, 0);
+            setColor(0.6f, 0.28f, 0.22f);
+            drawBox(0.15f, 0.4f, 0.14f);
+            
+            // Muscle definition
+            setColor(0.65f, 0.3f, 0.25f);
+            glPushMatrix();
+            glTranslatef(side * 0.08f, 0.1f, 0.06f);
+            drawSphere(0.08f, 6);
+            glPopMatrix();
+            glPopMatrix();
+            
             glPopMatrix();
         }
-
-        // === MASSIVE LEGS ===
+        
+        // =====================================================
+        // MASSIVE MUSCULAR TORSO
+        // =====================================================
+        glPushMatrix();
+        glTranslatef(0, 1.4f + breathe, 0);
+        
+        // Lower torso / abs
+        setColor(0.6f, 0.25f, 0.2f);
+        glPushMatrix();
+        glTranslatef(0, -0.2f, 0);
+        drawBox(0.4f, 0.35f, 0.3f);
+        
+        // Ab muscles
+        setColor(0.65f, 0.3f, 0.22f);
+        for (int row = 0; row < 3; row++) {
+            for (int col = -1; col <= 1; col += 2) {
+                glPushMatrix();
+                glTranslatef(col * 0.1f, -0.1f + row * 0.1f, 0.16f);
+                drawBox(0.08f, 0.08f, 0.04f);
+                glPopMatrix();
+            }
+        }
+        glPopMatrix();
+        
+        // Main chest - HUGE
+        setColor(0.58f, 0.25f, 0.2f);
+        drawBox(0.5f, 0.45f, 0.35f);
+        
+        // Pectoral muscles
+        setColor(0.65f, 0.3f, 0.22f);
         for (int side = -1; side <= 1; side += 2) {
             glPushMatrix();
-            glTranslatef(side * 0.18f, 0.5f, -0.05f);
-            glRotatef(sin(animPhase + side) * 12, 1, 0, 0);
-            
-            setColor(0.6f + rage * 0.2f, 0.15f, 0.1f);
-            drawBox(0.2f, 0.5f, 0.22f);
-            
-            // Armor plates
-            setColorMetallic(0.3f, 0.15f, 0.1f);
-            glPushMatrix();
-            glTranslatef(side * 0.08f, 0, 0.1f);
-            drawBox(0.08f, 0.4f, 0.06f);
-            glPopMatrix();
-            
-            glPushMatrix();
-            glTranslatef(0, -0.4f, 0.08f);
-            glRotatef(-35, 1, 0, 0);
-            setColor(0.6f + rage * 0.2f, 0.15f, 0.1f);
-            drawBox(0.16f, 0.45f, 0.18f);
-            glPopMatrix();
-            
+            glTranslatef(side * 0.18f, 0.15f, 0.2f);
+            glScalef(1.2f, 0.8f, 0.6f);
+            drawSphere(0.15f, 10);
             glPopMatrix();
         }
-
-        // === MASSIVE TORSO ===
-        glPushMatrix();
-        glTranslatef(0, 1.1f + breathe, 0);
         
-        setColor(0.65f + rage * 0.15f, 0.2f, 0.12f);
-        drawBox(0.6f, 0.75f, 0.45f);
-        
-        // Glowing chest rune
-        setColor(0.8f + pulseGlow * 0.2f, 0.2f * pulseGlow, 0.8f * pulseGlow);
-        setEmissive(0.6f * pulseGlow, 0.15f * pulseGlow, 0.6f * pulseGlow);
+        // CYBERNETIC IMPLANTS on chest
+        setColorMetallic(0.3f, 0.3f, 0.35f);
         glPushMatrix();
-        glTranslatef(0, 0.15f, 0.22f);
-        drawBox(0.18f, 0.18f, 0.03f);
-        // Rune details
-        drawBox(0.06f, 0.25f, 0.02f);
-        drawBox(0.25f, 0.06f, 0.02f);
-        glPopMatrix();
+        glTranslatef(0, 0, 0.22f);
+        drawBox(0.15f, 0.2f, 0.08f);
+        
+        // Glowing power core
+        setColor(1.0f * pulse, 0.3f * pulse, 0.1f * pulse);
+        setEmissive(0.8f * pulse + rage * 0.2f, 0.2f * pulse, 0.05f);
+        glTranslatef(0, 0, 0.05f);
+        drawSphere(0.08f, 12);
         clearEmissive();
+        glPopMatrix();
         
-        // Shoulder armor with spikes
+        // Spinal ridges on back
+        setColor(0.5f, 0.2f, 0.18f);
+        for (int s = 0; s < 5; s++) {
+            glPushMatrix();
+            glTranslatef(0, 0.2f - s * 0.1f, -0.2f);
+            drawBox(0.06f, 0.04f, 0.1f);
+            glPopMatrix();
+        }
+        
+        glPopMatrix();
+        
+        // =====================================================
+        // SHOULDERS - Massive with spikes
+        // =====================================================
         for (int side = -1; side <= 1; side += 2) {
             glPushMatrix();
-            glTranslatef(side * 0.38f, 0.3f, 0);
-            setColorMetallic(0.35f, 0.12f, 0.08f);
-            drawBox(0.2f, 0.18f, 0.25f);
+            glTranslatef(side * 0.55f, 1.6f + breathe, 0);
             
-            // Shoulder spikes
-            setColor(0.25f + rage * 0.2f, 0.08f, 0.05f);
-            for (int s = 0; s < 3; s++) {
+            // Shoulder muscle
+            setColor(0.6f, 0.28f, 0.22f);
+            drawSphere(0.2f, 10);
+            
+            // Bone spikes from shoulder
+            setColor(0.85f, 0.8f, 0.7f);
+            for (int sp = 0; sp < 3; sp++) {
                 glPushMatrix();
-                glTranslatef(side * 0.08f, 0.05f, -0.08f + s * 0.08f);
-                glRotatef(side * -30, 0, 0, 1);
-                drawCone(0.035f, 0.15f + s * 0.03f, 8);
+                glRotatef(sp * 25 - 25, 0, 0, 1);
+                glRotatef(side * 60, 0, 0, 1);
+                glTranslatef(side * 0.15f, 0.1f, 0);
+                drawCone(0.04f, 0.2f + sp * 0.05f, 6);
                 glPopMatrix();
             }
             glPopMatrix();
         }
         
-        glPopMatrix();
-
-        // === MASSIVE ARMS ===
-        for (int side = -1; side <= 1; side += 2) {
-            glPushMatrix();
-            glTranslatef(side * 0.45f, 1.2f + breathe, 0);
-            glRotatef(-25 + sin(animPhase) * 15, 1, 0, 0);
-            glRotatef(side * 30, 0, 0, 1);
-            
-            setColor(0.65f + rage * 0.15f, 0.2f, 0.12f);
-            drawBox(0.16f, 0.45f, 0.18f);
-            
-            // Forearm
-            glPushMatrix();
-            glTranslatef(0, -0.48f, 0);
-            drawBox(0.14f, 0.42f, 0.16f);
-            
-            // HUGE CLAWS
-            glPushMatrix();
-            glTranslatef(0, -0.3f, 0);
-            drawBox(0.14f, 0.16f, 0.14f);
-            
-            setColor(0.18f + rage * 0.1f, 0.06f, 0.04f);
-            for (int f = -1; f <= 1; f++) {
-                glPushMatrix();
-                glTranslatef(f * 0.04f, -0.12f, 0.03f);
-                glRotatef(-40, 1, 0, 0);
-                drawBox(0.025f, 0.18f, 0.025f);
-                glTranslatef(0, -0.12f, 0);
-                drawCone(0.02f, 0.1f, 6);
-                glPopMatrix();
-            }
-            glPopMatrix();
-            glPopMatrix();
-            
-            glPopMatrix();
-        }
-
-        // === HEAD ===
+        // =====================================================
+        // LEFT ARM - Muscular demon arm with claws
+        // =====================================================
         glPushMatrix();
-        glTranslatef(0, 1.7f + breathe, 0.08f);
+        glTranslatef(-0.65f, 1.5f + breathe, 0);
+        glRotatef(sin(animPhase * 0.8f) * 15.0f - 20, 1, 0, 0);
+        glRotatef(-25, 0, 0, 1);
         
-        // Neck
-        setColor(0.6f + rage * 0.15f, 0.18f, 0.12f);
+        // Upper arm
+        setColor(0.6f, 0.28f, 0.22f);
+        drawBox(0.14f, 0.35f, 0.12f);
+        
+        // Bicep bulge
+        setColor(0.65f, 0.32f, 0.25f);
         glPushMatrix();
-        glTranslatef(0, -0.18f, 0);
-        drawBox(0.2f, 0.18f, 0.18f);
+        glTranslatef(0.06f, 0.1f, 0);
+        drawSphere(0.1f, 8);
         glPopMatrix();
         
-        // Head
-        drawBox(0.3f, 0.35f, 0.32f);
+        // Elbow
+        glPushMatrix();
+        glTranslatef(0, -0.25f, 0);
+        setColor(0.55f, 0.25f, 0.2f);
+        drawSphere(0.1f, 8);
+        glPopMatrix();
         
-        // CROWN OF HORNS
-        setColor(0.22f + rage * 0.15f, 0.08f, 0.05f);
-        for (int i = 0; i < 8; i++) {
+        // Forearm
+        glPushMatrix();
+        glTranslatef(0, -0.5f, 0);
+        glRotatef(-20, 1, 0, 0);
+        setColor(0.58f, 0.26f, 0.2f);
+        drawBox(0.12f, 0.3f, 0.1f);
+        
+        // MASSIVE CLAWED HAND
+        glPushMatrix();
+        glTranslatef(0, -0.28f, 0.02f);
+        setColor(0.55f, 0.24f, 0.18f);
+        drawBox(0.14f, 0.1f, 0.1f);
+        
+        // Deadly claws
+        setColor(0.2f, 0.15f, 0.1f);
+        for (int f = -2; f <= 2; f++) {
             glPushMatrix();
-            float angle = i * 45.0f;
-            glTranslatef(0, 0.2f, 0);
-            glRotatef(angle, 0, 1, 0);
-            glTranslatef(0.15f, 0, 0);
-            glRotatef(-30 - (i % 2) * 15, 0, 0, 1);
+            glTranslatef(f * 0.03f, -0.08f, 0.04f);
+            glRotatef(-40, 1, 0, 0);
+            drawBox(0.02f, 0.06f, 0.02f);
             
-            // Horn with glow at tip when enraged
-            drawCylinder(0.04f, 0.12f, 8);
-            glTranslatef(0, 0.12f, 0);
-            drawCylinder(0.03f, 0.1f, 8);
-            glTranslatef(0, 0.1f, 0);
-            drawCone(0.025f, 0.1f, 8);
-            
-            // Glowing tip when enraged
+            // Claw tip
+            glTranslatef(0, -0.06f, 0);
             if (rage > 0.3f) {
-                setColor(1.0f, 0.4f * rage, 0.0f);
-                setEmissive(0.5f * rage, 0.2f * rage, 0.0f);
-                drawSphere(0.03f, 6);
-                clearEmissive();
-                setColor(0.22f + rage * 0.15f, 0.08f, 0.05f);
+                setColor(1.0f, 0.4f, 0.1f);
+                setEmissive(0.5f * rage, 0.2f * rage, 0.05f);
             }
-            
-            glPopMatrix();
-        }
-        
-        // Glowing eyes
-        for (int side = -1; side <= 1; side += 2) {
-            glPushMatrix();
-            glTranslatef(side * 0.09f, 0.05f, 0.15f);
-            setColor(1.0f, 0.3f + rage * 0.5f, 0.0f);
-            setEmissive(0.9f, 0.4f * (1 + rage), 0.0f);
-            drawSphere(0.055f, 12);
+            drawCone(0.015f, 0.12f, 6);
             clearEmissive();
             glPopMatrix();
         }
+        glPopMatrix();
         
-        // Massive jaw
-        setColor(0.5f + rage * 0.2f, 0.12f, 0.08f);
+        glPopMatrix();
+        glPopMatrix();
+        
+        // =====================================================
+        // RIGHT ARM - CYBERNETIC ROCKET LAUNCHER
+        // =====================================================
         glPushMatrix();
-        glTranslatef(0, -0.15f, 0.12f);
-        drawBox(0.22f, 0.12f, 0.15f);
+        glTranslatef(0.65f, 1.5f + breathe, 0);
+        float aimAngle = sin(animPhase * 0.5f) * 10.0f;
+        glRotatef(aimAngle - 15, 1, 0, 0);
+        glRotatef(25, 0, 0, 1);
         
-        // Huge fangs
-        setColor(0.9f, 0.85f, 0.7f);
+        // Shoulder mount - mechanical
+        setColorMetallic(0.35f, 0.35f, 0.4f);
+        drawBox(0.18f, 0.15f, 0.15f);
+        
+        // Hydraulic joint
+        setColorMetallic(0.4f, 0.4f, 0.45f);
+        glPushMatrix();
+        glTranslatef(0, -0.12f, 0);
+        drawCylinder(0.08f, 0.15f, 12);
+        glPopMatrix();
+        
+        // Main launcher arm
+        glPushMatrix();
+        glTranslatef(0, -0.4f, 0);
+        
+        // Arm housing
+        setColorMetallic(0.3f, 0.3f, 0.35f);
+        drawBox(0.14f, 0.35f, 0.12f);
+        
+        // THE ROCKET LAUNCHER
+        glPushMatrix();
+        glTranslatef(0, -0.3f, 0.08f);
+        glRotatef(-90, 1, 0, 0);
+        
+        // Main barrel
+        setColorMetallic(0.25f, 0.25f, 0.3f);
+        drawCylinder(0.1f, 0.5f, 16);
+        
+        // Barrel opening - glowing when charging
+        glPushMatrix();
+        glTranslatef(0, 0, 0.5f);
+        setColor(0.1f + rage * 0.9f, 0.1f + rage * 0.3f, 0.05f);
+        if (rage > 0.2f) setEmissive(rage * 0.8f, rage * 0.3f, 0.1f);
+        drawCylinder(0.08f, 0.05f, 12);
+        clearEmissive();
+        glPopMatrix();
+        
+        // Side details
+        setColorMetallic(0.35f, 0.35f, 0.4f);
+        for (int d = 0; d < 3; d++) {
+            glPushMatrix();
+            glTranslatef(0.1f, 0, 0.1f + d * 0.15f);
+            drawBox(0.04f, 0.06f, 0.06f);
+            glPopMatrix();
+        }
+        
+        // Ammo feed
+        setColorMetallic(0.4f, 0.35f, 0.3f);
+        glPushMatrix();
+        glTranslatef(-0.12f, 0, 0.2f);
+        drawCylinder(0.05f, 0.25f, 8);
+        glPopMatrix();
+        
+        glPopMatrix();
+        glPopMatrix();
+        glPopMatrix();
+        
+        // =====================================================
+        // NECK - Thick and muscular
+        // =====================================================
+        glPushMatrix();
+        glTranslatef(0, 1.85f + breathe, 0);
+        setColor(0.55f, 0.25f, 0.2f);
+        drawBox(0.18f, 0.15f, 0.15f);
+        
+        // Neck muscles
+        setColor(0.6f, 0.28f, 0.22f);
         for (int side = -1; side <= 1; side += 2) {
             glPushMatrix();
-            glTranslatef(side * 0.07f, -0.04f, 0.06f);
-            drawBox(0.025f, 0.1f, 0.025f);
-            glTranslatef(0, -0.06f, 0);
-            drawCone(0.02f, 0.06f, 6);
+            glTranslatef(side * 0.12f, 0, 0.05f);
+            drawBox(0.05f, 0.12f, 0.06f);
             glPopMatrix();
         }
         glPopMatrix();
         
+        // =====================================================
+        // DEMONIC HEAD - Terrifying face with massive horns
+        // =====================================================
+        glPushMatrix();
+        glTranslatef(0, 2.1f + breathe, 0.08f);
+        
+        // Main skull shape
+        setColor(0.6f, 0.28f, 0.22f);
+        glPushMatrix();
+        glScalef(1.0f, 1.1f, 0.95f);
+        drawSphere(0.28f, 16);
         glPopMatrix();
-
-        // === RAGE AURA ===
-        if (rage > 0.5f) {
-            enableGlow();
-            glColor4f(1.0f, 0.3f, 0.0f, rage * 0.3f);
+        
+        // Brow ridge - heavy and menacing
+        setColor(0.55f, 0.25f, 0.2f);
+        glPushMatrix();
+        glTranslatef(0, 0.12f, 0.18f);
+        drawBox(0.25f, 0.06f, 0.1f);
+        glPopMatrix();
+        
+        // MASSIVE HORNS - Curving back
+        setColor(0.2f, 0.15f, 0.1f);
+        for (int side = -1; side <= 1; side += 2) {
             glPushMatrix();
-            glTranslatef(0, 1.0f, 0);
-            drawSphere(1.2f + sin(getTime() * 5) * 0.1f, 16);
+            glTranslatef(side * 0.2f, 0.2f, -0.05f);
+            glRotatef(side * -30, 0, 0, 1);
+            glRotatef(-20, 1, 0, 0);
+            
+            // Horn base
+            drawCylinder(0.08f, 0.15f, 8);
+            
+            // Horn middle
+            glTranslatef(0, 0, 0.15f);
+            glRotatef(side * 15, 0, 1, 0);
+            drawCylinder(0.06f, 0.2f, 8);
+            
+            // Horn tip
+            glTranslatef(0, 0, 0.2f);
+            glRotatef(side * 10, 0, 1, 0);
+            drawCone(0.05f, 0.25f, 8);
+            
             glPopMatrix();
+        }
+        
+        // BURNING EYES - Red hellfire
+        for (int side = -1; side <= 1; side += 2) {
+            glPushMatrix();
+            glTranslatef(side * 0.1f, 0.08f, 0.22f);
+            
+            // Eye socket
+            setColor(0.15f, 0.05f, 0.05f);
+            drawSphere(0.07f, 10);
+            
+            // Burning eye
+            setColor(1.0f, 0.2f + rage * 0.3f, 0.05f);
+            setEmissive(1.0f, 0.3f + rage * 0.4f, 0.1f);
+            glTranslatef(0, 0, 0.03f);
+            drawSphere(0.05f, 10);
+            
+            // Bright pupil
+            setColor(1.0f, 0.8f + rage * 0.2f, 0.3f);
+            setEmissive(1.0f, 0.9f, 0.5f);
+            drawSphere(0.02f, 6);
+            clearEmissive();
+            
+            glPopMatrix();
+        }
+        
+        // Snout / muzzle
+        setColor(0.55f, 0.25f, 0.2f);
+        glPushMatrix();
+        glTranslatef(0, -0.02f, 0.2f);
+        drawBox(0.12f, 0.1f, 0.12f);
+        
+        // Nostrils - steaming
+        setColor(0.2f, 0.1f, 0.08f);
+        for (int side = -1; side <= 1; side += 2) {
+            glPushMatrix();
+            glTranslatef(side * 0.04f, 0.02f, 0.08f);
+            drawSphere(0.025f, 6);
+            glPopMatrix();
+        }
+        glPopMatrix();
+        
+        // Jaw with fangs
+        setColor(0.52f, 0.24f, 0.18f);
+        glPushMatrix();
+        float jawOpen = 5.0f + sin(time * 2.0f) * 3.0f + rage * 10.0f;
+        glTranslatef(0, -0.15f, 0.12f);
+        glRotatef(jawOpen, 1, 0, 0);
+        drawBox(0.15f, 0.08f, 0.12f);
+        
+        // MASSIVE FANGS
+        setColor(0.9f, 0.85f, 0.75f);
+        // Upper fangs
+        for (int side = -1; side <= 1; side += 2) {
+            glPushMatrix();
+            glTranslatef(side * 0.08f, 0.06f, 0.08f);
+            drawBox(0.025f, 0.1f, 0.025f);
+            glTranslatef(0, -0.08f, 0);
+            drawCone(0.02f, 0.06f, 6);
+            glPopMatrix();
+        }
+        // Row of teeth
+        for (int t = -2; t <= 2; t++) {
+            glPushMatrix();
+            glTranslatef(t * 0.025f, 0.04f, 0.1f);
+            drawBox(0.015f, 0.04f, 0.015f);
+            glPopMatrix();
+        }
+        glPopMatrix();
+        
+        glPopMatrix(); // Head
+        
+        // =====================================================
+        // RAGE AURA - Fire and brimstone when damaged
+        // =====================================================
+        if (rage > 0.25f) {
+            enableGlow();
+            
+            // Inner fire aura
+            glColor4f(1.0f, 0.3f + rage * 0.3f, 0.1f, rage * 0.3f);
+            glPushMatrix();
+            glTranslatef(0, 1.3f, 0);
+            drawSphere(0.9f + sin(time * 5.0f) * 0.1f, 12);
+            glPopMatrix();
+            
+            // Fire particles around body
+            for (int p = 0; p < 12; p++) {
+                float pAngle = p * 30.0f + time * 80.0f;
+                float pRad = pAngle * 3.14159f / 180.0f;
+                float pDist = 0.7f + sin(time * 3.0f + p) * 0.2f;
+                float pY = 0.8f + sin(time * 4.0f + p * 0.7f) * 0.5f + p * 0.08f;
+                
+                glPushMatrix();
+                glTranslatef(cos(pRad) * pDist, pY, sin(pRad) * pDist);
+                glColor4f(1.0f, 0.5f - p * 0.03f, 0.1f, 0.6f - p * 0.04f);
+                drawSphere(0.05f + rage * 0.03f, 6);
+                glPopMatrix();
+            }
+            
             disableGlow();
         }
         

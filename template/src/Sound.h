@@ -100,6 +100,37 @@ public:
         PlaySoundA(fullPath, NULL, SND_FILENAME | SND_ASYNC | SND_NODEFAULT);
     }
     
+    // Play MP3 sound effect using MCI (for longer sounds like win/lose)
+    void playSoundMP3(const char* filename) {
+        if (!sfxEnabled) return;
+        
+        char fullPath[512];
+        getFullPath(filename, fullPath, 512);
+        
+        char command[1024];
+        
+        // Close any previous sfx_mp3 - be thorough
+        mciSendStringA("stop sfx_mp3", NULL, 0, NULL);
+        mciSendStringA("close sfx_mp3", NULL, 0, NULL);
+        
+        // Open as mpegvideo (supports MP3)
+        snprintf(command, sizeof(command), "open \"%s\" type mpegvideo alias sfx_mp3", fullPath);
+        MCIERROR err = mciSendStringA(command, NULL, 0, NULL);
+        
+        if (err == 0) {
+            // Set volume high
+            mciSendStringA("setaudio sfx_mp3 volume to 1000", NULL, 0, NULL);
+            // Play once (no repeat)
+            mciSendStringA("play sfx_mp3", NULL, 0, NULL);
+        }
+    }
+    
+    // Stop win/lose sound - call before restarting game
+    void stopWinLoseSound() {
+        mciSendStringA("stop sfx_mp3", NULL, 0, NULL);
+        mciSendStringA("close sfx_mp3", NULL, 0, NULL);
+    }
+    
     // Play sound with overlap support using MCI (for rapid fire sounds)
     void playSoundOverlap(const char* filename) {
         if (!sfxEnabled) return;
@@ -169,6 +200,10 @@ namespace Sounds {
     const char* SFX_FLASHLIGHT_OFF = "res/Audio/FlashLightOff.wav";
     const char* SFX_SHOCKWAVE = "res/Audio/Shockwave.wav";
     const char* SFX_THUNDER = "res/Audio/Thunder.wav";
+    
+    // Win/Lose sounds
+    const char* SFX_WIN = "res/Audio/WIN_SOUND.mp3";
+    const char* SFX_LOSE = "res/Audio/LOSE_SOUND.mp3";
 }
 
 #endif // SOUND_H

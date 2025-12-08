@@ -16,6 +16,12 @@ build/
 bin/
 obj/
 
+# Specific template build folders
+template/Debug/
+template/Release/
+template/x64/
+template/x86/
+
 # Specific OpenGL template build folder
 template/OpenGL/Debug/
 template/OpenGL/Release/

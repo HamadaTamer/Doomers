@@ -41,6 +41,25 @@ public:
     float walkPhase;
     float muzzleFlashTimer;
     
+    // Lava damage
+    float lavaDamageTimer;      // Cooldown between lava damage ticks
+    float lavaInvincibilityTime; // Invincibility frames after lava damage
+    bool isInLava;
+    
+    // Powerup states
+    float speedBoostTime;
+    float damageBoostTime;
+    float invincibilityPowerupTime;
+    bool hasSpeedBoost;
+    bool hasDamageBoost;
+    bool hasInvincibility;
+    
+    // Shield system
+    float shieldHealth;
+    float maxShieldHealth;
+    bool hasShield;
+    float shieldFlashTime;
+    
     // Parkour animation state
     bool isDoingParkour;
     float parkourProgress;
@@ -59,6 +78,9 @@ public:
     // Input state
     bool moveForward, moveBackward, moveLeft, moveRight;
     bool wantJump, wantSprint;
+    
+    // Level boundary (set from Game based on current level)
+    float currentBoundary;
     
     // Reference to camera
     Camera* camera;
@@ -93,6 +115,25 @@ public:
         walkPhase = 0.0f;
         muzzleFlashTimer = 0.0f;
         
+        // Lava damage
+        lavaDamageTimer = 0.0f;
+        lavaInvincibilityTime = 0.0f;
+        isInLava = false;
+        
+        // Powerup states
+        speedBoostTime = 0.0f;
+        damageBoostTime = 0.0f;
+        invincibilityPowerupTime = 0.0f;
+        hasSpeedBoost = false;
+        hasDamageBoost = false;
+        hasInvincibility = false;
+        
+        // Shield system
+        shieldHealth = 0.0f;
+        maxShieldHealth = PLAYER_SHIELD_MAX; // Use config
+        hasShield = false;
+        shieldFlashTime = 0.0f;
+        
         // Parkour state
         isDoingParkour = false;
         parkourProgress = 0.0f;
@@ -108,6 +149,8 @@ public:
         
         moveForward = moveBackward = moveLeft = moveRight = false;
         wantJump = wantSprint = false;
+        
+        currentBoundary = BOUNDARY; // Default boundary
     }
     
     void toggleWeaponLight() {
@@ -295,6 +338,11 @@ public:
         isSprinting = wantSprint && isOnGround;
         float currentSpeed = speed * (isSprinting ? PLAYER_SPRINT_MULTIPLIER : 1.0f);
         
+        // Apply speed boost powerup
+        if (hasSpeedBoost) {
+            currentSpeed *= SPEED_BOOST_MULTIPLIER;
+        }
+        
         // Apply movement
         velocity.x = moveDir.x * currentSpeed;
         velocity.z = moveDir.z * currentSpeed;
@@ -347,18 +395,20 @@ public:
         }
         
         // World boundaries - walls and ceiling collision
+        // Use larger boundary if currentBoundary is set (for Level 2)
+        float activeBoundary = currentBoundary > 0 ? currentBoundary : BOUNDARY;
         float wallMargin = PLAYER_COLLISION_RADIUS + 0.3f;
-        if (position.x < -BOUNDARY + wallMargin) 
-            position.x = -BOUNDARY + wallMargin;
-        if (position.x > BOUNDARY - wallMargin) 
-            position.x = BOUNDARY - wallMargin;
-        if (position.z < -BOUNDARY + wallMargin) 
-            position.z = -BOUNDARY + wallMargin;
-        if (position.z > BOUNDARY - wallMargin) 
-            position.z = BOUNDARY - wallMargin;
+        if (position.x < -activeBoundary + wallMargin) 
+            position.x = -activeBoundary + wallMargin;
+        if (position.x > activeBoundary - wallMargin) 
+            position.x = activeBoundary - wallMargin;
+        if (position.z < -activeBoundary + wallMargin) 
+            position.z = -activeBoundary + wallMargin;
+        if (position.z > activeBoundary - wallMargin) 
+            position.z = activeBoundary - wallMargin;
         
-        // Ceiling collision
-        if (position.y > WALL_HEIGHT - 1.0f) {
+        // Ceiling collision (only for indoor levels)
+        if (currentBoundary <= BOUNDARY && position.y > WALL_HEIGHT - 1.0f) {
             position.y = WALL_HEIGHT - 1.0f;
             velocity.y = 0;
         }
@@ -381,6 +431,35 @@ public:
         if (invincibilityTime > 0) {
             invincibilityTime -= deltaTime;
             if (invincibilityTime < 0) invincibilityTime = 0;
+        }
+        
+        // Update powerup timers
+        if (speedBoostTime > 0) {
+            speedBoostTime -= deltaTime;
+            if (speedBoostTime <= 0) {
+                speedBoostTime = 0;
+                hasSpeedBoost = false;
+            }
+        }
+        if (damageBoostTime > 0) {
+            damageBoostTime -= deltaTime;
+            if (damageBoostTime <= 0) {
+                damageBoostTime = 0;
+                hasDamageBoost = false;
+            }
+        }
+        if (invincibilityPowerupTime > 0) {
+            invincibilityPowerupTime -= deltaTime;
+            if (invincibilityPowerupTime <= 0) {
+                invincibilityPowerupTime = 0;
+                hasInvincibility = false;
+            }
+        }
+        
+        // Update shield flash
+        if (shieldFlashTime > 0) {
+            shieldFlashTime -= deltaTime;
+            if (shieldFlashTime < 0) shieldFlashTime = 0;
         }
         
         // Update muzzle flash
@@ -432,21 +511,78 @@ public:
     }
     
     void takeDamage(int damage, Vector3 attackDir = Vector3(0,0,0)) {
+        // Check invincibility powerup first
+        if (hasInvincibility) return;
+        
         if (invincibilityTime <= 0) {
-            health -= damage;
-            damageFlash = 1.0f;
-            invincibilityTime = 0.5f; // Half second of invincibility frames
+            int remainingDamage = damage;
             
-            // Calculate knockback direction
-            if (attackDir.lengthSquared() > 0.01f) {
-                knockbackVelocity = attackDir.normalize() * 0.5f;
-            } else if (camera) {
-                knockbackVelocity = camera->getForward() * -0.5f;
+            // Shield absorbs damage first
+            if (hasShield && shieldHealth > 0) {
+                shieldFlashTime = 0.3f; // Flash effect when hit
+                if (shieldHealth >= remainingDamage) {
+                    shieldHealth -= remainingDamage;
+                    remainingDamage = 0;
+                } else {
+                    remainingDamage -= (int)shieldHealth;
+                    shieldHealth = 0;
+                    hasShield = false; // Shield broken
+                }
             }
-            knockbackTimer = 0.3f; // Knockback lasts 0.3 seconds
+            
+            // Apply remaining damage to health
+            if (remainingDamage > 0) {
+                health -= remainingDamage;
+                damageFlash = 1.0f;
+            }
+            
+            invincibilityTime = PLAYER_INVINCIBILITY_TIME; // Use config value
+            
+            // Calculate knockback direction (uses config force)
+            if (attackDir.lengthSquared() > 0.01f) {
+                knockbackVelocity = attackDir.normalize() * PLAYER_KNOCKBACK_FORCE;
+            } else if (camera) {
+                knockbackVelocity = camera->getForward() * -PLAYER_KNOCKBACK_FORCE;
+            }
+            knockbackTimer = PLAYER_KNOCKBACK_DURATION; // Use config value
             
             if (health < 0) health = 0;
         }
+    }
+    
+    // Lava damage with invincibility frames - player can jump to recover
+    void takeLavaDamage(int damage) {
+        // Check invincibility powerup
+        if (hasInvincibility) return;
+        
+        // Check lava invincibility frames (uses config value)
+        if (lavaInvincibilityTime <= 0) {
+            health -= damage;
+            damageFlash = 1.0f;
+            lavaInvincibilityTime = LAVA_INVINCIBILITY_TIME; // Use config
+            
+            // Slight upward boost to help player jump out (uses config)
+            if (velocity.y < LAVA_KNOCKBACK) {
+                velocity.y = LAVA_KNOCKBACK;
+            }
+            
+            if (health < 0) health = 0;
+        }
+    }
+    
+    // Update lava state
+    void updateLavaState(bool inLava, float deltaTime) {
+        isInLava = inLava;
+        
+        // Update lava invincibility timer
+        if (lavaInvincibilityTime > 0) {
+            lavaInvincibilityTime -= deltaTime;
+            if (lavaInvincibilityTime < 0) lavaInvincibilityTime = 0;
+        }
+    }
+    
+    bool isInLavaInvincible() const {
+        return lavaInvincibilityTime > 0;
     }
     
     void heal(int amount) {
@@ -459,8 +595,45 @@ public:
         if (ammo > maxAmmo) ammo = maxAmmo;
     }
     
+    void setMaxAmmo() {
+        ammo = maxAmmo;
+    }
+    
     void addScore(int points) {
         score += points;
+    }
+    
+    // Powerup activation methods
+    void activateSpeedBoost(float duration) {
+        hasSpeedBoost = true;
+        speedBoostTime = duration;
+    }
+    
+    void activateDamageBoost(float duration) {
+        hasDamageBoost = true;
+        damageBoostTime = duration;
+    }
+    
+    void activateInvincibility(float duration) {
+        hasInvincibility = true;
+        invincibilityPowerupTime = duration;
+    }
+    
+    // Activate shield
+    void activateShield(float amount) {
+        hasShield = true;
+        shieldHealth = amount;
+        if (shieldHealth > maxShieldHealth) shieldHealth = maxShieldHealth;
+    }
+    
+    // Get damage multiplier for shooting
+    float getDamageMultiplier() const {
+        return hasDamageBoost ? DAMAGE_BOOST_MULTIPLIER : 1.0f;
+    }
+    
+    // Check if player can take damage (invincibility powerup check)
+    bool canTakeDamage() const {
+        return !hasInvincibility && invincibilityTime <= 0;
     }
     
     bool isDead() const {

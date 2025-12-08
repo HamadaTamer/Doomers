@@ -606,6 +606,11 @@ public:
     bool allEnemiesKilled;
     bool exitDoorJustActivated; // Flag for Game to play sound
     
+    // Boss phase system for Level 2
+    bool bossPhaseStarted;      // Has the boss fight begun?
+    bool regularEnemiesCleared; // Are all non-boss enemies dead?
+    int bossEnemyIndex;         // Index of the boss enemy in array
+    
     // Level properties
     Vector3 playerStart;
     Vector3 objective; // Goal position
@@ -640,6 +645,9 @@ public:
         numParkourObstacles = 0;
         allEnemiesKilled = false;
         exitDoorJustActivated = false;
+        bossPhaseStarted = false;
+        regularEnemiesCleared = false;
+        bossEnemyIndex = -1;
         
         // Reset exit door
         exitDoor = ExitDoor();
@@ -923,114 +931,209 @@ public:
     void loadLevel2() {
         reset();
         levelID = LEVEL_2_HELL_ARENA;
-        floorSize = 70.0f;
-        wallHeight = 0.0f; // Outdoor
+        
+        // ===================================================================
+        // LEVEL 2: HELL ARENA - Compact, well-designed arena
+        // ===================================================================
+        floorSize = 80.0f;       // Smaller, tighter arena
+        wallHeight = 0.0f;        // Outdoor - no walls
         hasLava = true;
-        lavaHeight = -0.5f;
-        maxTime = 400.0f; // Longer level
+        lavaHeight = -0.5f;       // Lava just below ground level (less punishing)
+        maxTime = 480.0f;         // 8 minutes
+        drawDistance = 100.0f;
         
-        playerStart = Vector3(0, PLAYER_HEIGHT, -25);
-        objective = Vector3(0, 5, 25); // Obelisk position
+        // Player starts on the main arena platform (elevated starting platform)
+        playerStart = Vector3(0, PLAYER_HEIGHT + 2.5f, -10);
+        objective = Vector3(0, 5, 25);
         
-        // === ENEMIES ===
-        numEnemies = 0;
-        
-        // More demons in hell arena
-        enemies[numEnemies].init(ENEMY_DEMON, Vector3(-15, 0, 0), Vector3(-20, 0, 0), Vector3(-10, 0, 0));
-        numEnemies++;
-        
-        enemies[numEnemies].init(ENEMY_DEMON, Vector3(15, 0, 0), Vector3(10, 0, 0), Vector3(20, 0, 0));
-        numEnemies++;
-        
-        enemies[numEnemies].init(ENEMY_DEMON, Vector3(0, 0, 10), Vector3(-10, 0, 10), Vector3(10, 0, 10));
-        numEnemies++;
-        
-        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(-20, 0, -15), Vector3(-25, 0, -15), Vector3(-15, 0, -15));
-        numEnemies++;
-        
-        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(20, 0, -15), Vector3(15, 0, -15), Vector3(25, 0, -15));
-        numEnemies++;
-        
-        // BOSS guarding the obelisk
-        enemies[numEnemies].init(ENEMY_BOSS, Vector3(0, 0, 20), Vector3(-5, 0, 20), Vector3(5, 0, 20));
-        numEnemies++;
-        
-        // === COLLECTIBLES ===
-        numCollectibles = 0;
-        
-        // More health packs needed for harder level
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-20, 0, -20), 30);
-        numCollectibles++;
-        
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(20, 0, -20), 30);
-        numCollectibles++;
-        
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(0, 0, 0), 30);
-        numCollectibles++;
-        
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-15, 3, 15), 50); // On platform
-        numCollectibles++;
-        
-        // Ammo
-        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(-10, 0, -10), 25);
-        numCollectibles++;
-        
-        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(10, 0, -10), 25);
-        numCollectibles++;
-        
-        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(0, 0, 15), 30);
-        numCollectibles++;
-        
-        // === PLATFORMS (Floating rock platforms over lava) ===
+        // ===================================================================
+        // PLATFORMS - Simple, connected arena design
+        // ===================================================================
         numPlatforms = 0;
         
-        // Starting area platforms
-        platforms[numPlatforms] = Platform(Vector3(0, 0.5f, -22), Vector3(8, 1.0f, 8));
+        // MAIN ARENA FLOOR - Large central platform (the main fighting area)
+        platforms[numPlatforms] = Platform(Vector3(0, 0.5f, 0), Vector3(35, 1.0f, 35));
         numPlatforms++;
         
-        // Path across arena
-        platforms[numPlatforms] = Platform(Vector3(-10, 1.0f, -15), Vector3(5, 0.6f, 5));
+        // ELEVATED CORNERS - 4 raised platforms around the arena
+        platforms[numPlatforms] = Platform(Vector3(-20, 2.0f, -20), Vector3(8, 1.0f, 8));
+        numPlatforms++;
+        platforms[numPlatforms] = Platform(Vector3(20, 2.0f, -20), Vector3(8, 1.0f, 8));
+        numPlatforms++;
+        platforms[numPlatforms] = Platform(Vector3(-20, 2.0f, 20), Vector3(8, 1.0f, 8));
+        numPlatforms++;
+        platforms[numPlatforms] = Platform(Vector3(20, 2.0f, 20), Vector3(8, 1.0f, 8));
         numPlatforms++;
         
-        platforms[numPlatforms] = Platform(Vector3(10, 1.0f, -15), Vector3(5, 0.6f, 5));
+        // RAMPS connecting corners to main floor (easy traversal)
+        platforms[numPlatforms] = Platform(Vector3(-15, 1.2f, -15), Vector3(5, 0.5f, 5));
+        numPlatforms++;
+        platforms[numPlatforms] = Platform(Vector3(15, 1.2f, -15), Vector3(5, 0.5f, 5));
+        numPlatforms++;
+        platforms[numPlatforms] = Platform(Vector3(-15, 1.2f, 15), Vector3(5, 0.5f, 5));
+        numPlatforms++;
+        platforms[numPlatforms] = Platform(Vector3(15, 1.2f, 15), Vector3(5, 0.5f, 5));
         numPlatforms++;
         
-        platforms[numPlatforms] = Platform(Vector3(-15, 1.5f, -5), Vector3(4, 0.6f, 4));
+        // BOSS PLATFORM - Elevated throne at the back
+        platforms[numPlatforms] = Platform(Vector3(0, 3.5f, 30), Vector3(15, 1.5f, 10));
+        numPlatforms++;
+        // Steps leading to boss platform
+        platforms[numPlatforms] = Platform(Vector3(0, 1.5f, 22), Vector3(10, 0.8f, 5));
+        numPlatforms++;
+        platforms[numPlatforms] = Platform(Vector3(0, 2.5f, 26), Vector3(12, 0.8f, 5));
         numPlatforms++;
         
-        platforms[numPlatforms] = Platform(Vector3(15, 1.5f, -5), Vector3(4, 0.6f, 4));
+        // SIDE WALKWAYS - For strategic movement
+        platforms[numPlatforms] = Platform(Vector3(-30, 1.0f, 0), Vector3(5, 0.6f, 20));
+        numPlatforms++;
+        platforms[numPlatforms] = Platform(Vector3(30, 1.0f, 0), Vector3(5, 0.6f, 20));
         numPlatforms++;
         
-        platforms[numPlatforms] = Platform(Vector3(0, 1.2f, 0), Vector3(10, 0.8f, 10)); // Central arena
-        numPlatforms++;
+        // ===================================================================
+        // ENEMIES - Phase 1: Regular enemies, Phase 2: Boss spawns
+        // ===================================================================
+        numEnemies = 0;
         
-        platforms[numPlatforms] = Platform(Vector3(-15, 2.5f, 10), Vector3(4, 0.6f, 4));
-        numPlatforms++;
+        // REGULAR ENEMIES (10 total - clear these first)
+        // Main arena zombies
+        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(-10, 1.0f, -5), Vector3(-15, 1.0f, -5), Vector3(-5, 1.0f, -5));
+        numEnemies++;
+        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(10, 1.0f, -5), Vector3(5, 1.0f, -5), Vector3(15, 1.0f, -5));
+        numEnemies++;
+        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(0, 1.0f, 10), Vector3(-5, 1.0f, 10), Vector3(5, 1.0f, 10));
+        numEnemies++;
         
-        platforms[numPlatforms] = Platform(Vector3(15, 2.5f, 10), Vector3(4, 0.6f, 4));
-        numPlatforms++;
+        // Corner platform demons
+        enemies[numEnemies].init(ENEMY_DEMON, Vector3(-20, 2.5f, -20), Vector3(-23, 2.5f, -20), Vector3(-17, 2.5f, -20));
+        numEnemies++;
+        enemies[numEnemies].init(ENEMY_DEMON, Vector3(20, 2.5f, -20), Vector3(17, 2.5f, -20), Vector3(23, 2.5f, -20));
+        numEnemies++;
+        enemies[numEnemies].init(ENEMY_DEMON, Vector3(-20, 2.5f, 20), Vector3(-23, 2.5f, 20), Vector3(-17, 2.5f, 20));
+        numEnemies++;
+        enemies[numEnemies].init(ENEMY_DEMON, Vector3(20, 2.5f, 20), Vector3(17, 2.5f, 20), Vector3(23, 2.5f, 20));
+        numEnemies++;
         
-        // Objective platform
-        platforms[numPlatforms] = Platform(Vector3(0, 3.0f, 22), Vector3(8, 1.0f, 8));
-        numPlatforms++;
+        // Side walkway enemies
+        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(-30, 1.5f, 5), Vector3(-30, 1.5f, 0), Vector3(-30, 1.5f, 10));
+        numEnemies++;
+        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(30, 1.5f, -5), Vector3(30, 1.5f, -10), Vector3(30, 1.5f, 0));
+        numEnemies++;
+        // Enemy near player - uses config distance to stay away from spawn
+        enemies[numEnemies].init(ENEMY_DEMON, Vector3(0, 1.0f, LEVEL2_ENEMY_SPAWN_DISTANCE), 
+                                 Vector3(-5, 1.0f, LEVEL2_ENEMY_SPAWN_DISTANCE), 
+                                 Vector3(5, 1.0f, LEVEL2_ENEMY_SPAWN_DISTANCE));
+        numEnemies++;
         
-        // === ROCKS (use crates as rocks) ===
+        // THE DEMON KING BOSS - Starts inactive, spawns after clearing regular enemies
+        bossEnemyIndex = numEnemies;
+        enemies[numEnemies].init(ENEMY_BOSS, Vector3(0, 4.0f, 30), Vector3(-5, 4.0f, 30), Vector3(5, 4.0f, 30));
+        enemies[numEnemies].active = false; // Boss starts INACTIVE
+        numEnemies++;
+        
+        // ===================================================================
+        // COLLECTIBLES - Health and Ammo strategically placed
+        // ===================================================================
+        numCollectibles = 0;
+        
+        // Starting supplies (near spawn)
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-5, 1.0f, -20), 30);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(5, 1.0f, -20), 40);
+        numCollectibles++;
+        
+        // Corner platform pickups
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-20, 2.5f, -20), 35);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(20, 2.5f, -20), 35);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-20, 2.5f, 20), 35);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(20, 2.5f, 20), 35);
+        numCollectibles++;
+        
+        // Arena center pickups
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(0, 1.0f, 0), 50);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(0, 1.0f, -8), 50);
+        numCollectibles++;
+        
+        // Boss area supplies (for the boss fight)
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-8, 4.0f, 30), 75);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(8, 4.0f, 30), 75);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(0, 4.0f, 35), 60);
+        numCollectibles++;
+        
+        // Powerups
+        collectibles[numCollectibles].init(COLLECT_DAMAGE_BOOST, Vector3(-30, 1.5f, -10), 12);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_SPEED_BOOST, Vector3(30, 1.5f, 10), 12);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_INVINCIBILITY, Vector3(0, 2.0f, 22), 10); // Before boss
+        numCollectibles++;
+        
+        // SHIELD - Critical for boss fight! Gives 100 shield points
+        collectibles[numCollectibles].init(COLLECT_SHIELD, Vector3(-20, 2.5f, 20), 100);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_SHIELD, Vector3(20, 2.5f, -20), 100);
+        numCollectibles++;
+        
+        // ===================================================================
+        // ROCKS/CRATES - Cover and mystery boxes
+        // ===================================================================
         numCrates = 0;
         
-        float rockPositions[][3] = {
-            {-25, 0, -10}, {-22, 0, 5}, {25, 0, -10}, {22, 0, 5},
-            {-28, 0, -25}, {28, 0, -25}, {-5, 0, -30}, {5, 0, -30},
-        };
+        // Cover rocks on main arena
+        crates[numCrates].position = Vector3(-12, 0.5f, 5);
+        crates[numCrates].size = 2.0f;
+        crates[numCrates].isSciFi = false;
+        crates[numCrates].updateBounds();
+        numCrates++;
         
-        for (int i = 0; i < 8 && numCrates < MAX_CRATES; i++) {
-            crates[numCrates].position = Vector3(rockPositions[i][0], rockPositions[i][1], rockPositions[i][2]);
-            crates[numCrates].size = 1.5f + (float)(rand() % 10) / 10.0f;
-            crates[numCrates].isSciFi = false; // Use as rocks
-            crates[numCrates].updateBounds();
-            numCrates++;
-        }
+        crates[numCrates].position = Vector3(12, 0.5f, -5);
+        crates[numCrates].size = 2.0f;
+        crates[numCrates].isSciFi = false;
+        crates[numCrates].updateBounds();
+        numCrates++;
         
-        numDoors = 0; // No doors in outdoor level
+        crates[numCrates].position = Vector3(0, 0.5f, 12);
+        crates[numCrates].size = 1.8f;
+        crates[numCrates].isSciFi = false;
+        crates[numCrates].updateBounds();
+        numCrates++;
+        
+        // Mystery boxes
+        crates[numCrates].position = Vector3(-18, 2.5f, -18);
+        crates[numCrates].size = 1.2f;
+        crates[numCrates].isSciFi = true;
+        crates[numCrates].setAsMysteryBox();
+        crates[numCrates].updateBounds();
+        numCrates++;
+        
+        crates[numCrates].position = Vector3(18, 2.5f, 18);
+        crates[numCrates].size = 1.2f;
+        crates[numCrates].isSciFi = true;
+        crates[numCrates].setAsMysteryBox();
+        crates[numCrates].updateBounds();
+        numCrates++;
+        
+        crates[numCrates].position = Vector3(0, 4.0f, 28);
+        crates[numCrates].size = 1.2f;
+        crates[numCrates].isSciFi = true;
+        crates[numCrates].setAsMysteryBox();
+        crates[numCrates].updateBounds();
+        numCrates++;
+        
+        numDoors = 0;
+        numParkourObstacles = 0;
+        
+        // Exit door (not used in Level 2)
+        exitDoor.position = Vector3(0, 3.5f, 40);
+        exitDoor.rotation = 180.0f;
+        exitDoor.isActive = false;
+        exitDoor.updateBounds();
     }
     
     void update(float deltaTime, const Vector3& playerPos) {
@@ -1082,8 +1185,50 @@ public:
         // Update exit door
         exitDoor.update(deltaTime);
         
-        // Check if all enemies are killed
-        if (!allEnemiesKilled) {
+        // ===================================================================
+        // LEVEL 2 TWO-PHASE BOSS SYSTEM
+        // Phase 1: Kill all regular enemies -> Boss spawns
+        // Phase 2: Kill boss -> Win
+        // ===================================================================
+        if (levelID == LEVEL_2_HELL_ARENA) {
+            // Phase 1: Check if all regular enemies (non-boss) are dead
+            if (!regularEnemiesCleared && !bossPhaseStarted) {
+                bool anyRegularAlive = false;
+                for (int i = 0; i < numEnemies; i++) {
+                    // Skip the boss enemy
+                    if (i == bossEnemyIndex) continue;
+                    if (enemies[i].active && !enemies[i].isDead()) {
+                        anyRegularAlive = true;
+                        break;
+                    }
+                }
+                
+                if (!anyRegularAlive) {
+                    regularEnemiesCleared = true;
+                    bossPhaseStarted = true;
+                    exitDoorJustActivated = true; // Flag for Game to show "BOSS INCOMING" and play sound
+                    
+                    // SPAWN THE BOSS!
+                    if (bossEnemyIndex >= 0 && bossEnemyIndex < numEnemies) {
+                        enemies[bossEnemyIndex].active = true;
+                    }
+                }
+            }
+            
+            // Phase 2: Check if boss is dead
+            if (bossPhaseStarted && !allEnemiesKilled) {
+                if (bossEnemyIndex >= 0 && bossEnemyIndex < numEnemies) {
+                    if (enemies[bossEnemyIndex].isDead()) {
+                        allEnemiesKilled = true;
+                        objectiveReached = true; // Victory shake + auto-win
+                    }
+                }
+            }
+        }
+        // ===================================================================
+        // LEVEL 1 STANDARD LOGIC
+        // ===================================================================
+        else if (!allEnemiesKilled) {
             bool anyAlive = false;
             for (int i = 0; i < numEnemies; i++) {
                 if (enemies[i].active && !enemies[i].isDead()) {
@@ -1093,13 +1238,13 @@ public:
             }
             if (!anyAlive && numEnemies > 0) {
                 allEnemiesKilled = true;
-                exitDoorJustActivated = true; // Flag for Game to play sound
+                exitDoorJustActivated = true;
                 exitDoor.activate();
             }
         }
         
-        // Check objective - only complete when at exit door after all enemies killed
-        if (allEnemiesKilled && exitDoor.isOpen) {
+        // Check objective - only for Level 1, complete when at exit door after all enemies killed
+        if (levelID == LEVEL_1_FACILITY && allEnemiesKilled && exitDoor.isOpen) {
             float distToExit = playerPos.distanceTo(exitDoor.position);
             if (distToExit < 2.5f) {
                 objectiveReached = true;
@@ -1107,9 +1252,14 @@ public:
         }
     }
     
-    // Check if all enemies are dead
-    bool areAllEnemiesKilled() const {
-        return allEnemiesKilled;
+    // Check if boss phase has started (for HUD messages)
+    bool isBossPhaseActive() const {
+        return bossPhaseStarted && !allEnemiesKilled;
+    }
+    
+    // Check if regular enemies are cleared (boss about to spawn)
+    bool areRegularEnemiesCleared() const {
+        return regularEnemiesCleared;
     }
     
     // Get nearest interactable object for E key
@@ -2031,35 +2181,347 @@ public:
     }
     
     void drawHellFloor() {
-        glPushMatrix();
+        // FIRST: Draw sky (behind everything)
+        drawHellSky();
         
-        // Rocky ground with lava cracks
-        LowPolyModels::setColor(Colors::HELL_FLOOR[0], Colors::HELL_FLOOR[1], Colors::HELL_FLOOR[2]);
+        glPushMatrix();
+        float halfSize = floorSize / 2.0f;
+        
+        // =====================================================
+        // MOLTEN LAVA FLOOR - SOLID AND VISIBLE
+        // =====================================================
+        
+        // Reset all OpenGL state to ensure clean rendering
+        glDisable(GL_BLEND);
+        glDisable(GL_TEXTURE_2D);
+        glEnable(GL_DEPTH_TEST);
+        glDepthMask(GL_TRUE);
+        glDisable(GL_LIGHTING);
+        
+        float time = levelTime;
+        float mainPulse = sin(time * 1.5f) * 0.1f + 0.9f;
+        
+        // =====================================================
+        // SOLID BASE - Guaranteed visible bright orange lava
+        // =====================================================
+        glColor3f(0.8f * mainPulse, 0.25f * mainPulse, 0.03f);
         glBegin(GL_QUADS);
         glNormal3f(0, 1, 0);
-        glVertex3f(-floorSize/2, lavaHeight - 0.5f, -floorSize/2);
-        glVertex3f(floorSize/2, lavaHeight - 0.5f, -floorSize/2);
-        glVertex3f(floorSize/2, lavaHeight - 0.5f, floorSize/2);
-        glVertex3f(-floorSize/2, lavaHeight - 0.5f, floorSize/2);
+        glVertex3f(-halfSize * 3.0f, lavaHeight, -halfSize * 3.0f);
+        glVertex3f(halfSize * 3.0f, lavaHeight, -halfSize * 3.0f);
+        glVertex3f(halfSize * 3.0f, lavaHeight, halfSize * 3.0f);
+        glVertex3f(-halfSize * 3.0f, lavaHeight, halfSize * 3.0f);
         glEnd();
         
-        // Lava layer
+        // =====================================================
+        // LAVA GRID OVERLAY - Wave animation
+        // =====================================================
+        int gridSize = 20;
+        float cellSize = (halfSize * 3.0f) / gridSize;
+        
+        for (int gx = 0; gx < gridSize; gx++) {
+            for (int gz = 0; gz < gridSize; gz++) {
+                float cx = -halfSize * 1.5f + gx * cellSize + cellSize * 0.5f;
+                float cz = -halfSize * 1.5f + gz * cellSize + cellSize * 0.5f;
+                
+                // Wave effect
+                float wave = sin(time * 2.0f + gx * 0.4f + gz * 0.3f) * 0.15f;
+                float cellY = lavaHeight + 0.05f + wave;
+                
+                // Color varies across grid - hot orange to deep red
+                float heatVar = sin(time * 1.0f + gx * 0.5f + gz * 0.7f) * 0.15f + 0.85f;
+                float r = 0.9f * mainPulse * heatVar;
+                float g = 0.3f * mainPulse * heatVar;
+                float b = 0.05f;
+                
+                glColor3f(r, g, b);
+                
+                float hs = cellSize * 0.48f;
+                glBegin(GL_QUADS);
+                glNormal3f(0, 1, 0);
+                glVertex3f(cx - hs, cellY, cz - hs);
+                glVertex3f(cx + hs, cellY, cz - hs);
+                glVertex3f(cx + hs, cellY, cz + hs);
+                glVertex3f(cx - hs, cellY, cz + hs);
+                glEnd();
+            }
+        }
+        
+        // =====================================================
+        // HOT SPOTS - Bright glowing patches
+        // =====================================================
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        
+        for (int i = 0; i < 25; i++) {
+            float hx = sin(i * 2.1f + time * 0.08f) * halfSize * 1.2f;
+            float hz = cos(i * 2.9f + time * 0.06f) * halfSize * 1.2f;
+            float hy = lavaHeight + 0.2f;
+            float spotSize = 3.0f + sin(i * 1.5f + time * 1.5f) * 1.5f;
+            float intensity = sin(time * 2.5f + i * 0.6f) * 0.2f + 0.8f;
+            
+            glColor4f(1.0f * intensity, 0.45f * intensity, 0.05f, 0.5f);
+            glBegin(GL_QUADS);
+            glVertex3f(hx - spotSize, hy, hz - spotSize);
+            glVertex3f(hx + spotSize, hy, hz - spotSize);
+            glVertex3f(hx + spotSize, hy, hz + spotSize);
+            glVertex3f(hx - spotSize, hy, hz + spotSize);
+            glEnd();
+        }
+        
+        // =====================================================
+        // RISING EMBERS - Orange particles
+        // =====================================================
+        glPointSize(4.0f);
+        glBegin(GL_POINTS);
+        
+        for (int e = 0; e < 100; e++) {
+            float emberX = sin(e * 3.3f + time * 0.08f) * halfSize * 1.4f;
+            float emberZ = cos(e * 4.7f + time * 0.06f) * halfSize * 1.4f;
+            float emberY = fmod(time * 1.2f + e * 0.8f, 25.0f) + lavaHeight;
+            float emberAlpha = 1.0f - (emberY - lavaHeight) / 25.0f;
+            
+            glColor4f(1.0f, 0.4f + sin(e * 0.3f) * 0.1f, 0.05f, emberAlpha * 0.85f);
+            glVertex3f(emberX + sin(emberY * 0.3f) * 1.5f, emberY, emberZ + cos(emberY * 0.3f) * 1.5f);
+        }
+        
+        glEnd();
+        glPointSize(1.0f);
+        
+        glDisable(GL_BLEND);
+        glEnable(GL_LIGHTING);
+        
+        glPopMatrix();
+    }
+    
+    // Draw demonic pillars, portals, and runes around the arena
+    void drawDemonicStructures() {
+        glPushMatrix();
+        
+        // =====================================================
+        // DEMONIC PILLARS - Towering obsidian spires
+        // =====================================================
+        float pillarPositions[][3] = {
+            {-60, 0, -60}, {60, 0, -60},
+            {-80, 0, 0}, {80, 0, 0},
+            {-60, 0, 60}, {60, 0, 60},
+            {0, 0, -85}, {0, 0, 95},
+        };
+        
+        for (int p = 0; p < 8; p++) {
+            glPushMatrix();
+            glTranslatef(pillarPositions[p][0], lavaHeight, pillarPositions[p][2]);
+            
+            // Dark obsidian pillar
+            LowPolyModels::setColor(0.1f, 0.08f, 0.12f);
+            float pillarHeight = 15.0f + sin(p * 2.5f) * 5.0f;
+            LowPolyModels::drawBox(3.0f, pillarHeight, 3.0f);
+            
+            // Glowing rune at top
+            glDisable(GL_LIGHTING);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+            
+            float runeGlow = sin(levelTime * 2.0f + p * 0.8f) * 0.3f + 0.7f;
+            glColor4f(0.8f * runeGlow, 0.1f * runeGlow, 0.0f, 0.9f);
+            
+            glPushMatrix();
+            glTranslatef(0, pillarHeight + 0.5f, 0);
+            glutSolidSphere(1.0f, 10, 10);
+            glPopMatrix();
+            
+            glDisable(GL_BLEND);
+            glEnable(GL_LIGHTING);
+            
+            glPopMatrix();
+        }
+        
+        // =====================================================
+        // HELL PORTALS - Demonic gateways with swirling energy
+        // =====================================================
+        float portalPositions[][3] = {
+            {-40, 5.0f, -40}, {40, 5.0f, -40},
+            {-45, 6.0f, 40}, {45, 6.0f, 40},
+        };
+        
+        for (int pt = 0; pt < 4; pt++) {
+            glPushMatrix();
+            glTranslatef(portalPositions[pt][0], portalPositions[pt][1], portalPositions[pt][2]);
+            
+            glDisable(GL_LIGHTING);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+            
+            // Portal ring
+            float portalPulse = sin(levelTime * 3.0f + pt * 1.5f) * 0.2f + 0.8f;
+            glColor4f(0.6f * portalPulse, 0.0f, 0.8f * portalPulse, 0.7f);
+            
+            glRotatef(90, 1, 0, 0);
+            glRotatef(levelTime * 30.0f + pt * 45.0f, 0, 0, 1);
+            glutSolidTorus(0.3f, 4.0f, 12, 24);
+            
+            // Inner swirl
+            glColor4f(0.9f * portalPulse, 0.2f * portalPulse, 0.5f * portalPulse, 0.5f);
+            for (int r = 0; r < 3; r++) {
+                glRotatef(levelTime * 60.0f + r * 120.0f, 0, 0, 1);
+                glBegin(GL_TRIANGLES);
+                glVertex3f(0, 0, 0);
+                glVertex3f(3.0f, 0, 0);
+                glVertex3f(2.0f, 1.5f, 0);
+                glEnd();
+            }
+            
+            glDisable(GL_BLEND);
+            glEnable(GL_LIGHTING);
+            
+            glPopMatrix();
+        }
+        
+        // =====================================================
+        // FLOATING RUNES - Mysterious symbols in the air
+        // =====================================================
         glDisable(GL_LIGHTING);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE);
         
-        float lavaGlow = sin(levelTime * 2.0f) * 0.2f + 0.8f;
-        glColor4f(1.0f * lavaGlow, 0.3f * lavaGlow, 0.0f, 0.8f);
+        for (int r = 0; r < 20; r++) {
+            float runeX = sin(r * 0.628f) * 50.0f;
+            float runeZ = cos(r * 0.628f) * 50.0f;
+            float runeY = 8.0f + sin(levelTime + r * 0.5f) * 2.0f;
+            
+            float runeGlow = sin(levelTime * 2.5f + r * 0.3f) * 0.3f + 0.7f;
+            glColor4f(1.0f * runeGlow, 0.3f * runeGlow, 0.0f, 0.6f);
+            
+            glPushMatrix();
+            glTranslatef(runeX, runeY, runeZ);
+            glRotatef(levelTime * 20.0f + r * 18.0f, 0, 1, 0);
+            
+            // Draw rune as a simple quad with X pattern
+            glBegin(GL_LINES);
+            glVertex3f(-0.5f, -0.5f, 0);
+            glVertex3f(0.5f, 0.5f, 0);
+            glVertex3f(-0.5f, 0.5f, 0);
+            glVertex3f(0.5f, -0.5f, 0);
+            glVertex3f(0, -0.7f, 0);
+            glVertex3f(0, 0.7f, 0);
+            glEnd();
+            
+            glPopMatrix();
+        }
         
+        glDisable(GL_BLEND);
+        glEnable(GL_LIGHTING);
+        
+        glPopMatrix();
+    }
+    
+    void drawHellSky() {
+        // Draw sky in WORLD SPACE centered around origin
+        glPushMatrix();
+        
+        // Move sky to player position so it surrounds them
+        glTranslatef(lastPlayerPos.x, 0, lastPlayerPos.z);
+        
+        float halfSize = 300.0f;
+        
+        // Disable lighting and depth for sky - sky is always behind everything
+        glDisable(GL_LIGHTING);
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+        
+        float skyPulse = sin(levelTime * 0.5f) * 0.1f + 0.9f;
+        
+        // Check if boss is active - change sky color!
+        bool bossActive = bossEnemyIndex >= 0 && bossEnemyIndex < numEnemies && enemies[bossEnemyIndex].active;
+        
+        // Sky colors based on boss phase
+        float skyTopR, skyTopG, skyTopB;
+        float skyBotR, skyBotG, skyBotB;
+        
+        if (bossActive) {
+            // BOSS PHASE - Stormy blue sky!
+            skyTopR = 0.02f; skyTopG = 0.03f; skyTopB = 0.12f;  // Dark blue top
+            skyBotR = 0.1f * skyPulse; skyBotG = 0.15f * skyPulse; skyBotB = 0.4f * skyPulse;  // Bright blue bottom
+        } else {
+            // HELL PHASE - Red/crimson sky
+            skyTopR = 0.15f; skyTopG = 0.03f; skyTopB = 0.05f;  // Dark red top
+            skyBotR = 0.7f * skyPulse; skyBotG = 0.2f * skyPulse; skyBotB = 0.1f;  // Bright red bottom
+        }
+        
+        // =====================================================
+        // HELL SKY BOX - Red/crimson gradient in world space
+        // =====================================================
+        
+        // Upper sky ceiling
         glBegin(GL_QUADS);
-        glVertex3f(-floorSize/2, lavaHeight, -floorSize/2);
-        glVertex3f(floorSize/2, lavaHeight, -floorSize/2);
-        glVertex3f(floorSize/2, lavaHeight, floorSize/2);
-        glVertex3f(-floorSize/2, lavaHeight, floorSize/2);
+        glColor3f(skyTopR, skyTopG, skyTopB);
+        glVertex3f(-halfSize, 150.0f, -halfSize);
+        glVertex3f(halfSize, 150.0f, -halfSize);
+        glVertex3f(halfSize, 150.0f, halfSize);
+        glVertex3f(-halfSize, 150.0f, halfSize);
         glEnd();
         
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        // Draw sky walls - 4 sides with gradient from dark top to bright bottom
+        // Front wall (negative Z)
+        glBegin(GL_QUADS);
+        glColor3f(skyTopR, skyTopG, skyTopB);
+        glVertex3f(-halfSize, 150.0f, -halfSize);
+        glVertex3f(halfSize, 150.0f, -halfSize);
+        glColor3f(skyBotR, skyBotG, skyBotB);
+        glVertex3f(halfSize, -50.0f, -halfSize);
+        glVertex3f(-halfSize, -50.0f, -halfSize);
+        glEnd();
+        
+        // Back wall (positive Z)
+        glBegin(GL_QUADS);
+        glColor3f(skyTopR, skyTopG, skyTopB);
+        glVertex3f(halfSize, 150.0f, halfSize);
+        glVertex3f(-halfSize, 150.0f, halfSize);
+        glColor3f(skyBotR, skyBotG, skyBotB);
+        glVertex3f(-halfSize, -50.0f, halfSize);
+        glVertex3f(halfSize, -50.0f, halfSize);
+        glEnd();
+        
+        // Left wall (negative X)
+        glBegin(GL_QUADS);
+        glColor3f(skyTopR, skyTopG, skyTopB);
+        glVertex3f(-halfSize, 150.0f, halfSize);
+        glVertex3f(-halfSize, 150.0f, -halfSize);
+        glColor3f(skyBotR, skyBotG, skyBotB);
+        glVertex3f(-halfSize, -50.0f, -halfSize);
+        glVertex3f(-halfSize, -50.0f, halfSize);
+        glEnd();
+        
+        // Right wall (positive X)
+        glBegin(GL_QUADS);
+        glColor3f(skyTopR, skyTopG, skyTopB);
+        glVertex3f(halfSize, 150.0f, -halfSize);
+        glVertex3f(halfSize, 150.0f, halfSize);
+        glColor3f(skyBotR, skyBotG, skyBotB);
+        glVertex3f(halfSize, -50.0f, halfSize);
+        glVertex3f(halfSize, -50.0f, -halfSize);
+        glEnd();
+        
+        // MOON in the sky - Blue when boss active, blood red otherwise
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        float moonGlow = sin(levelTime * 0.3f) * 0.15f + 0.85f;
+        if (bossActive) {
+            // Blue electric moon
+            glColor4f(0.3f * moonGlow, 0.5f * moonGlow, 0.95f * moonGlow, 0.9f);
+        } else {
+            // Blood red moon
+            glColor4f(0.9f * moonGlow, 0.15f * moonGlow, 0.1f * moonGlow, 0.9f);
+        }
+        glPushMatrix();
+        glTranslatef(100.0f, 100.0f, -200.0f);
+        glutSolidSphere(25.0f, 24, 24);
+        glPopMatrix();
         glDisable(GL_BLEND);
+        
+        // Re-enable depth test and lighting
+        glDepthMask(GL_TRUE);
+        glEnable(GL_DEPTH_TEST);
         glEnable(GL_LIGHTING);
         
         glPopMatrix();
@@ -2405,6 +2867,11 @@ public:
             float dist = lastPlayerPos.distanceTo(enemies[i].position);
             if (dist > drawDistance + 20.0f) continue;
             enemies[i].draw();
+            
+            // Draw boss projectiles
+            if (enemies[i].type == ENEMY_BOSS) {
+                enemies[i].drawProjectiles();
+            }
         }
         DEBUG_LOG("Level::draw enemies done\n");
         
@@ -2433,6 +2900,24 @@ public:
     
     int getRemainingTime() const {
         return (int)(maxTime - levelTime);
+    }
+    
+    bool areAllEnemiesKilled() const {
+        // For Level 2 with boss phase system
+        if (levelID == LEVEL_2_HELL_ARENA) {
+            // All enemies killed when boss phase started AND boss is dead
+            if (!bossPhaseStarted) return false; // Still clearing regular enemies
+            // Boss must be dead
+            if (bossEnemyIndex >= 0 && bossEnemyIndex < numEnemies) {
+                return !enemies[bossEnemyIndex].active;
+            }
+            return regularEnemiesCleared; // Fallback
+        }
+        // For other levels, check all enemies
+        for (int i = 0; i < numEnemies; i++) {
+            if (enemies[i].active) return false;
+        }
+        return true;
     }
 };
 

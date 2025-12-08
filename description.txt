@@ -1,0 +1,132 @@
+
+4
+
+Automatic Zoom
+German University in Cairo 
+Media Engineering and Technology 
+DMET 502 Computer Graphics, Winter 2025 
+ 
+ 
+ 
+ 
+Project proposal template 
+ 
+(Please replace the text in red by your own ideas) 
+ 
+Project Title (Game name): Doomers 
+ 
+1. Game description (detailed): 
+Doomers is a fast-paced sci-fi shooter that combines first-person and third-person 
+perspectives in the same game. The player is an elite soldier trapped in a demon-
+infested research facility and must escape by fighting enemies, solving simple maze-like 
+paths, and performing parkour jumps across platforms and hazards. 
+The core gameplay is as follows: the player sprints through corridors, shoots 
+demons and zombie enemies, and collects ammo, health packs, and keycards to 
+unlock new areas. Parkour elements (running, jumping between platforms, 
+climbing short ledges) are required to navigate the environment and to reach 
+collectibles. 
+The game has two main levels (environments). In the first one, the player moves 
+inside an indoor lab / bunker with narrow corridors and security doors. In the 
+second one, the player goes to an outdoor hell-like arena with wider spaces and 
+open air environment. 
+A flashlight is attached to the player’s weapon and follows the camera direction, 
+providing a moving light source in dark areas. The final score is based on: 
+number of enemies killed, collectibles obtained, and time taken to finish both 
+levels. The player can switch at any time between a first-person view (camera as 
+the eyes) and a third-person view (camera behind and above the character) to 
+experience both FPS and 3rd-person shooter styles in one game. 
+ 
+ 
+German University in Cairo 
+Media Engineering and Technology 
+DMET 502 Computer Graphics, Winter 2025 
+ 
+ 
+ 
+2. First environment models (obstacles, collectibles, target): All models are textured. 
+Specify what models to be used (human, car, tank, coins, ... etc) 
+Environment 1: “Abandoned Research Facility”  
+1. Player character is an armed soldier with a gun  
+2. Basic enemy demon / zombie model. 
+3. Metal crates and sci-fi boxes (obstacles, used for cover and parkour). 
+4. Sliding security doors and gate frames (blocking paths, visual obstacles). 
+5. Collectibles to affect the health (health pack) 
+6. Ammo boxes (magazines). 
+7. Main “lab core” / reactor or portal device as the target model for level 1 
+(reach and activate it to finish the level). 
+3. Second environment models (obstacles, collectibles, target): All models are textured. 
+Specify what models to be used (human, car, tank, coins, ... etc) 
+Environment 2: “Rooftop / Hell Arena” (outdoor) 
+1. Player character (same soldier model reused). 
+2. Advanced demon / boss enemy model (larger enemy). 
+3. Rooftop structures: air-conditioning units, pipes, chimneys, antennas 
+(obstacles and cover). 
+4. Floating or suspended platforms for parkour (metal slabs, broken bridge 
+pieces). 
+5. Ammo boxes and health packs again as collectibles in harder-to-reach 
+places. 
+6. Final objective: large glowing obelisk / portal / beacon model that the 
+player must reach and activate to win the game. 
+ 
+ 
+ 
+ 
+German University in Cairo 
+Media Engineering and Technology 
+DMET 502 Computer Graphics, Winter 2025 
+ 
+ 
+ 
+A first person point of view will be implemented. The camera is the player’s eye. 
+4. A third person point of view will be implemented. The camera is behind and slightly 
+above the player (the upper part of the player is visible to the camera). 
+ 
+5. Navigation through the game is done using the keyboard and the mouse: 
+The keyboard keys are used to move the player 
+• W, A, S, D: move forward, left, backward, right. 
+• Space: jump  
+• Shift: sprint  
+The mouse buttons will make the shoot and alternate between camera views. 
+• Mouse movement: aim / rotate the camera. 
+• Left mouse button: shoot (fire weapon). 
+• Right mouse button: toggle between first person and third person camera 
+views. 
+The score is displayed on the screen. 
+6. Generation of animations with every user interaction will be implemented: 
+ Shooting an enemy: 
+• Gun recoil animation (small rotation + translation of the weapon). 
+• Enemy “hit reaction” animation (enemy steps back or slightly falls). 
+• Short muzzle-flash light animation (brief strong light at the gun barrel). 
+• Gunshot sound effect. 
+ Collecting a pickup (ammo, health): 
+• Collectible model rotates and scales up slightly, then disappears. 
+• A “pickup” sound is played. 
+• Score immediately increases. 
+   
+ 
+German University in Cairo 
+Media Engineering and Technology 
+DMET 502 Computer Graphics, Winter 2025 
+ 
+ 
+ 
+Jumping / parkour: 
+• Player model plays a jump animation (legs bending before jump, landing 
+crouch). 
+Being hit by an enemy: 
+• Short red screen flash or slight camera shake. 
+• Hurt sound effect. 
+• Player is moved slightly backwards (small translation). 
+ 
+7. There is a light source that changes its color intensity and animates: 
+1.  Flashlight attached to the gun (spot light): 
+• Follows the camera direction in both first- and third-person modes. 
+• Light intensity can slightly flicker in darker areas to give a horror vibe. 
+2.  Emergency lights in the lab (level 1): 
+• Rotating red siren lights in corridors (point or spot lights). 
+• These lights rotate around their vertical axis (rotation transformation) and 
+periodically change intensity from dim red to bright red. 
+3.  Outdoor / arena main light (level 2): 
+• A directional light representing the sky. 
+• Its color/intensity gradually changes from orange to dark blue during the 
+level, simulating a transition from sunset to night. 

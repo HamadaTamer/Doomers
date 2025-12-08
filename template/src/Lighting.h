@@ -185,18 +185,66 @@ public:
     
     void updateDayNightCycle(float progress) {
         dayNightCycle = progress;
+        if (progress > 1.0f) progress = 1.0f;
         
-        // Interpolate between sunset orange and dark blue
-        float sunsetR = 0.8f - progress * 0.6f;
-        float sunsetG = 0.4f - progress * 0.35f;
-        float sunsetB = 0.2f + progress * 0.3f;
+        // Enhanced day-night transition for hell arena
+        // Progress 0.0 = Sunset (orange/red sky)
+        // Progress 0.3 = Dusk (dark red/purple)
+        // Progress 0.6 = Early night (purple/blue)
+        // Progress 1.0 = Deep night (dark blue)
         
-        float globalAmbient[] = {sunsetR * 0.2f, sunsetG * 0.2f, sunsetB * 0.2f, 1.0f};
+        float ambientR, ambientG, ambientB;
+        float lightR, lightG, lightB;
+        
+        if (progress < 0.3f) {
+            // Sunset - warm orange light
+            float t = progress / 0.3f;
+            ambientR = 0.35f - t * 0.15f;  // 0.35 -> 0.2
+            ambientG = 0.15f - t * 0.08f;  // 0.15 -> 0.07
+            ambientB = 0.08f + t * 0.05f;  // 0.08 -> 0.13
+            
+            lightR = 1.0f - t * 0.3f;      // 1.0 -> 0.7
+            lightG = 0.5f - t * 0.25f;     // 0.5 -> 0.25
+            lightB = 0.2f + t * 0.1f;      // 0.2 -> 0.3
+        } else if (progress < 0.6f) {
+            // Dusk to early night - purple tones
+            float t = (progress - 0.3f) / 0.3f;
+            ambientR = 0.2f - t * 0.1f;    // 0.2 -> 0.1
+            ambientG = 0.07f - t * 0.02f;  // 0.07 -> 0.05
+            ambientB = 0.13f + t * 0.07f;  // 0.13 -> 0.2
+            
+            lightR = 0.7f - t * 0.35f;     // 0.7 -> 0.35
+            lightG = 0.25f - t * 0.1f;     // 0.25 -> 0.15
+            lightB = 0.3f + t * 0.15f;     // 0.3 -> 0.45
+        } else {
+            // Night - dark blue with lava glow
+            float t = (progress - 0.6f) / 0.4f;
+            ambientR = 0.1f + t * 0.05f;   // 0.1 -> 0.15 (lava influence)
+            ambientG = 0.05f;
+            ambientB = 0.2f - t * 0.08f;   // 0.2 -> 0.12
+            
+            lightR = 0.35f - t * 0.15f;    // 0.35 -> 0.2
+            lightG = 0.15f - t * 0.1f;     // 0.15 -> 0.05
+            lightB = 0.45f - t * 0.2f;     // 0.45 -> 0.25
+        }
+        
+        float globalAmbient[] = {ambientR, ambientG, ambientB, 1.0f};
         glLightModelfv(GL_LIGHT_MODEL_AMBIENT, globalAmbient);
         
-        // Directional "sky" light
-        ambientLight.setColor(sunsetR, sunsetG, sunsetB);
+        // Directional "sky" light - simulates sun/moon
+        ambientLight.setColor(lightR, lightG, lightB);
         ambientLight.enabled = true;
+        
+        // Add lava glow effect to ambient during night
+        if (progress > 0.5f) {
+            float lavaInfluence = (progress - 0.5f) * 0.4f;
+            // Subtle orange underglow from lava
+            emergencyLights[0].position = Vector3(0, -5, 0);
+            emergencyLights[0].setColor(0.8f * lavaInfluence, 0.3f * lavaInfluence, 0.05f * lavaInfluence);
+            emergencyLights[0].linearAtt = 0.01f;
+            emergencyLights[0].quadraticAtt = 0.002f;
+            emergencyLights[0].enabled = true;
+        }
     }
     
     void update(float deltaTime, const Vector3& playerPos, const Vector3& lookDir) {

@@ -324,6 +324,79 @@ public:
     }
     
     // ========================================================================
+    // SHIELD BAR - Cyan energy shield display
+    // ========================================================================
+    void drawShieldBar(float shieldHealth, float maxShieldHealth) {
+        if (shieldHealth <= 0) return; // Don't draw if no shield
+        
+        float x = 30.0f;
+        float y = screenHeight - 100.0f; // Below health bar
+        float barWidth = 200.0f;
+        float barHeight = 18.0f;
+        
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        
+        float shieldPercent = shieldHealth / maxShieldHealth;
+        float pulse = sin(animTime * 4.0f) * 0.1f + 0.9f;
+        
+        // Background
+        glColor4f(0.05f, 0.1f, 0.15f, 0.85f);
+        glBegin(GL_QUADS);
+        glVertex2f(x, y);
+        glVertex2f(x + barWidth, y);
+        glVertex2f(x + barWidth, y + barHeight);
+        glVertex2f(x, y + barHeight);
+        glEnd();
+        
+        // Shield fill - cyan gradient with glow
+        float fillWidth = (barWidth - 6) * shieldPercent;
+        
+        // Glow behind bar
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        glColor4f(0.0f * pulse, 0.7f * pulse, 1.0f * pulse, 0.3f);
+        glBegin(GL_QUADS);
+        glVertex2f(x - 5, y - 5);
+        glVertex2f(x + fillWidth + 8, y - 5);
+        glVertex2f(x + fillWidth + 8, y + barHeight + 5);
+        glVertex2f(x - 5, y + barHeight + 5);
+        glEnd();
+        
+        // Main fill
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glBegin(GL_QUADS);
+        glColor4f(0.0f, 0.6f * pulse, 0.9f * pulse, 0.9f);
+        glVertex2f(x + 3, y + 3);
+        glVertex2f(x + fillWidth + 3, y + 3);
+        glColor4f(0.2f, 0.9f * pulse, 1.0f * pulse, 0.9f);
+        glVertex2f(x + fillWidth + 3, y + barHeight - 3);
+        glVertex2f(x + 3, y + barHeight - 3);
+        glEnd();
+        
+        // Border
+        glColor4f(0.0f, 0.8f * pulse, 1.0f * pulse, 0.8f);
+        glLineWidth(2.0f);
+        glBegin(GL_LINE_LOOP);
+        glVertex2f(x, y);
+        glVertex2f(x + barWidth, y);
+        glVertex2f(x + barWidth, y + barHeight);
+        glVertex2f(x, y + barHeight);
+        glEnd();
+        
+        glDisable(GL_BLEND);
+        
+        // Shield label
+        StyledText::drawTextWithShadow(x, y - 15, "SHIELD", fontSmall, 0.3f, 0.8f, 1.0f);
+        
+        // Shield value
+        char shieldText[16];
+        sprintf(shieldText, "%.0f", shieldHealth);
+        StyledText::drawTextWithGlow(x + barWidth - 35, y + 2, shieldText, fontMedium, 0.2f, 0.9f, 1.0f, 0.4f);
+        
+        glLineWidth(1.0f);
+    }
+    
+    // ========================================================================
     // AMMO COUNTER - Military style
     // ========================================================================
     void drawAmmoCounter(int ammo, int maxAmmo) {
@@ -523,6 +596,150 @@ public:
     }
     
     // ========================================================================
+    // POWERUP INDICATORS - Shows active powerups with remaining time
+    // ========================================================================
+    void drawPowerupIndicators(float speedBoostTime, float damageBoostTime, float invincibilityTime) {
+        float x = screenWidth - 200.0f;
+        float y = screenHeight - 180.0f;
+        float spacing = 45.0f;
+        int activeCount = 0;
+        
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        
+        // Speed boost indicator
+        if (speedBoostTime > 0) {
+            float yPos = y - activeCount * spacing;
+            float pulse = sin(animTime * 6.0f) * 0.2f + 0.8f;
+            
+            // Background bar
+            glColor4f(0.0f, 0.4f, 0.6f, 0.7f);
+            glBegin(GL_QUADS);
+            glVertex2f(x, yPos - 5);
+            glVertex2f(x + 170, yPos - 5);
+            glVertex2f(x + 170, yPos + 25);
+            glVertex2f(x, yPos + 25);
+            glEnd();
+            
+            // Progress bar (time remaining)
+            float progress = speedBoostTime / POWERUP_DURATION;
+            glColor4f(0.0f * pulse, 0.8f * pulse, 1.0f * pulse, 0.9f);
+            glBegin(GL_QUADS);
+            glVertex2f(x + 2, yPos - 3);
+            glVertex2f(x + 2 + 166 * progress, yPos - 3);
+            glVertex2f(x + 2 + 166 * progress, yPos + 23);
+            glVertex2f(x + 2, yPos + 23);
+            glEnd();
+            
+            // Icon (lightning bolt shape)
+            glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+            glBegin(GL_TRIANGLES);
+            glVertex2f(x + 15, yPos + 18);
+            glVertex2f(x + 25, yPos + 10);
+            glVertex2f(x + 18, yPos + 10);
+            glVertex2f(x + 18, yPos + 10);
+            glVertex2f(x + 28, yPos + 2);
+            glVertex2f(x + 15, yPos + 10);
+            glEnd();
+            
+            // Text
+            char text[32];
+            sprintf(text, "SPEED  %.1fs", speedBoostTime);
+            StyledText::drawTextWithShadow(x + 35, yPos + 14, text, fontSmall, 1.0f, 1.0f, 1.0f);
+            
+            activeCount++;
+        }
+        
+        // Damage boost indicator
+        if (damageBoostTime > 0) {
+            float yPos = y - activeCount * spacing;
+            float pulse = sin(animTime * 5.0f) * 0.2f + 0.8f;
+            
+            // Background bar
+            glColor4f(0.5f, 0.2f, 0.0f, 0.7f);
+            glBegin(GL_QUADS);
+            glVertex2f(x, yPos - 5);
+            glVertex2f(x + 170, yPos - 5);
+            glVertex2f(x + 170, yPos + 25);
+            glVertex2f(x, yPos + 25);
+            glEnd();
+            
+            // Progress bar
+            float progress = damageBoostTime / POWERUP_DURATION;
+            glColor4f(1.0f * pulse, 0.4f * pulse, 0.0f, 0.9f);
+            glBegin(GL_QUADS);
+            glVertex2f(x + 2, yPos - 3);
+            glVertex2f(x + 2 + 166 * progress, yPos - 3);
+            glVertex2f(x + 2 + 166 * progress, yPos + 23);
+            glVertex2f(x + 2, yPos + 23);
+            glEnd();
+            
+            // Icon (skull/fire shape)
+            glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+            glBegin(GL_TRIANGLE_FAN);
+            glVertex2f(x + 20, yPos + 10);
+            for (int i = 0; i <= 6; i++) {
+                float angle = i * 3.14159f / 3.0f;
+                float r = 8.0f + (i % 2) * 4.0f;
+                glVertex2f(x + 20 + cos(angle) * r, yPos + 10 + sin(angle) * r);
+            }
+            glEnd();
+            
+            // Text
+            char text[32];
+            sprintf(text, "DAMAGE x2  %.1fs", damageBoostTime);
+            StyledText::drawTextWithShadow(x + 35, yPos + 14, text, fontSmall, 1.0f, 0.8f, 0.4f);
+            
+            activeCount++;
+        }
+        
+        // Invincibility indicator
+        if (invincibilityTime > 0) {
+            float yPos = y - activeCount * spacing;
+            float pulse = sin(animTime * 8.0f) * 0.3f + 0.7f;
+            
+            // Background bar - golden
+            glColor4f(0.5f, 0.45f, 0.1f, 0.7f);
+            glBegin(GL_QUADS);
+            glVertex2f(x, yPos - 5);
+            glVertex2f(x + 170, yPos - 5);
+            glVertex2f(x + 170, yPos + 25);
+            glVertex2f(x, yPos + 25);
+            glEnd();
+            
+            // Progress bar
+            float progress = invincibilityTime / INVINCIBILITY_DURATION;
+            glColor4f(1.0f * pulse, 0.85f * pulse, 0.2f, 0.95f);
+            glBegin(GL_QUADS);
+            glVertex2f(x + 2, yPos - 3);
+            glVertex2f(x + 2 + 166 * progress, yPos - 3);
+            glVertex2f(x + 2 + 166 * progress, yPos + 23);
+            glVertex2f(x + 2, yPos + 23);
+            glEnd();
+            
+            // Icon (shield shape)
+            glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+            glBegin(GL_POLYGON);
+            glVertex2f(x + 20, yPos + 18);
+            glVertex2f(x + 28, yPos + 14);
+            glVertex2f(x + 28, yPos + 6);
+            glVertex2f(x + 20, yPos + 2);
+            glVertex2f(x + 12, yPos + 6);
+            glVertex2f(x + 12, yPos + 14);
+            glEnd();
+            
+            // Text
+            char text[32];
+            sprintf(text, "INVINCIBLE  %.1fs", invincibilityTime);
+            StyledText::drawTextWithShadow(x + 35, yPos + 14, text, fontSmall, 1.0f, 0.95f, 0.5f);
+            
+            activeCount++;
+        }
+        
+        glDisable(GL_BLEND);
+    }
+    
+    // ========================================================================
     // DAMAGE OVERLAY - Full screen effect
     // ========================================================================
     void drawDamageOverlay(float intensity) {
@@ -587,6 +804,133 @@ public:
         glVertex2f(screenWidth, edgeSize);
         glVertex2f(0, edgeSize);
         glEnd();
+        
+        glDisable(GL_BLEND);
+    }
+    
+    // ========================================================================
+    // NEAR-DEATH OVERLAY - Grey/desaturated screen when low health
+    // Uses NEARDEATH_THRESHOLD from GameConfig.h
+    // ========================================================================
+    void drawNearDeathOverlay(float healthPercent) {
+        if (healthPercent > NEARDEATH_THRESHOLD) return; // Use config threshold
+        
+        glEnable(GL_BLEND);
+        
+        // Calculate intensity - more intense at lower health
+        float intensity = 1.0f - (healthPercent / NEARDEATH_THRESHOLD);
+        intensity = intensity * intensity; // Square for more dramatic effect at low health
+        float pulse = sin(animTime * 4.0f) * 0.2f + 0.8f;
+        
+        // STRONG grey/red desaturation overlay - much more visible
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        
+        // Red-tinted grey for danger feeling
+        float redTint = intensity * 0.3f;
+        glColor4f(0.3f + redTint, 0.15f, 0.15f, intensity * 0.65f * pulse);
+        glBegin(GL_QUADS);
+        glVertex2f(0, 0);
+        glVertex2f(screenWidth, 0);
+        glVertex2f(screenWidth, screenHeight);
+        glVertex2f(0, screenHeight);
+        glEnd();
+        
+        // Dark vignette - MUCH stronger, gets darker towards edges when dying
+        float edgeAlpha = 0.3f + intensity * 0.7f; // Starts visible, gets very dark
+        float edgeSize = 250.0f + intensity * 150.0f;
+        
+        // Left edge
+        glBegin(GL_QUADS);
+        glColor4f(0.0f, 0.0f, 0.0f, edgeAlpha);
+        glVertex2f(0, 0);
+        glColor4f(0.0f, 0.0f, 0.0f, 0.0f);
+        glVertex2f(edgeSize, 0);
+        glVertex2f(edgeSize, screenHeight);
+        glColor4f(0.0f, 0.0f, 0.0f, edgeAlpha);
+        glVertex2f(0, screenHeight);
+        glEnd();
+        
+        // Right edge
+        glBegin(GL_QUADS);
+        glColor4f(0.0f, 0.0f, 0.0f, 0.0f);
+        glVertex2f(screenWidth - edgeSize, 0);
+        glColor4f(0.0f, 0.0f, 0.0f, edgeAlpha);
+        glVertex2f(screenWidth, 0);
+        glVertex2f(screenWidth, screenHeight);
+        glColor4f(0.0f, 0.0f, 0.0f, 0.0f);
+        glVertex2f(screenWidth - edgeSize, screenHeight);
+        glEnd();
+        
+        // Top edge
+        glBegin(GL_QUADS);
+        glColor4f(0.0f, 0.0f, 0.0f, 0.0f);
+        glVertex2f(0, screenHeight - edgeSize);
+        glVertex2f(screenWidth, screenHeight - edgeSize);
+        glColor4f(0.0f, 0.0f, 0.0f, edgeAlpha);
+        glVertex2f(screenWidth, screenHeight);
+        glVertex2f(0, screenHeight);
+        glEnd();
+        
+        // Bottom edge
+        glBegin(GL_QUADS);
+        glColor4f(0.0f, 0.0f, 0.0f, edgeAlpha);
+        glVertex2f(0, 0);
+        glVertex2f(screenWidth, 0);
+        glColor4f(0.0f, 0.0f, 0.0f, 0.0f);
+        glVertex2f(screenWidth, edgeSize);
+        glVertex2f(0, edgeSize);
+        glEnd();
+        
+        // Heartbeat/flash effect - uses config threshold
+        if (healthPercent < NEARDEATH_HEARTBEAT_THRESHOLD) {
+            float heartbeatSpeed = 6.0f + (NEARDEATH_HEARTBEAT_THRESHOLD - healthPercent) * 20.0f;
+            float heartbeat = sin(animTime * heartbeatSpeed);
+            if (heartbeat > 0.7f) {
+                float flashIntensity = (heartbeat - 0.7f) / 0.3f;
+                glColor4f(0.6f, 0.0f, 0.0f, flashIntensity * 0.35f);
+                glBegin(GL_QUADS);
+                glVertex2f(0, 0);
+                glVertex2f(screenWidth, 0);
+                glVertex2f(screenWidth, screenHeight);
+                glVertex2f(0, screenHeight);
+                glEnd();
+            }
+        }
+        
+        // CRITICAL - uses config threshold for pulsing red border
+        if (healthPercent < NEARDEATH_CRITICAL_THRESHOLD) {
+            float critPulse = (sin(animTime * 10.0f) + 1.0f) * 0.5f;
+            float borderSize = 30.0f;
+            glColor4f(0.8f, 0.0f, 0.0f, 0.5f + critPulse * 0.4f);
+            // Top border
+            glBegin(GL_QUADS);
+            glVertex2f(0, screenHeight - borderSize);
+            glVertex2f(screenWidth, screenHeight - borderSize);
+            glVertex2f(screenWidth, screenHeight);
+            glVertex2f(0, screenHeight);
+            glEnd();
+            // Bottom border
+            glBegin(GL_QUADS);
+            glVertex2f(0, 0);
+            glVertex2f(screenWidth, 0);
+            glVertex2f(screenWidth, borderSize);
+            glVertex2f(0, borderSize);
+            glEnd();
+            // Left border
+            glBegin(GL_QUADS);
+            glVertex2f(0, 0);
+            glVertex2f(borderSize, 0);
+            glVertex2f(borderSize, screenHeight);
+            glVertex2f(0, screenHeight);
+            glEnd();
+            // Right border
+            glBegin(GL_QUADS);
+            glVertex2f(screenWidth - borderSize, 0);
+            glVertex2f(screenWidth, 0);
+            glVertex2f(screenWidth, screenHeight);
+            glVertex2f(screenWidth - borderSize, screenHeight);
+            glEnd();
+        }
         
         glDisable(GL_BLEND);
     }
@@ -760,40 +1104,94 @@ public:
     // ========================================================================
     // MAIN DRAW FUNCTION
     // ========================================================================
-    void draw(int health, int maxHealth, int ammo, int maxAmmo, int score, int timeSeconds, int level) {
+    void draw(int health, int maxHealth, int ammo, int maxAmmo, int score, int timeSeconds, int level,
+              float speedBoostTime = 0.0f, float damageBoostTime = 0.0f, float invincibilityTime = 0.0f,
+              float shieldHealth = 0.0f, float maxShieldHealth = 100.0f) {
         beginHUD();
         
-        // Damage overlay first (behind everything)
+        // Near-death grey overlay FIRST (affects everything)
+        float healthPercent = (float)health / (float)maxHealth;
+        drawNearDeathOverlay(healthPercent);
+        
+        // Damage overlay (behind everything)
         if (damageFlash > 0) {
             drawDamageOverlay(damageFlash);
+        }
+        
+        // Invincibility effect overlay
+        if (invincibilityTime > 0) {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+            float pulse = sin(animTime * 10.0f) * 0.1f + 0.1f;
+            glColor4f(1.0f, 0.85f, 0.2f, pulse);
+            glBegin(GL_QUADS);
+            glVertex2f(0, 0);
+            glVertex2f(screenWidth, 0);
+            glVertex2f(screenWidth, screenHeight);
+            glVertex2f(0, screenHeight);
+            glEnd();
+            glDisable(GL_BLEND);
         }
         
         // HUD elements
         drawHealthBar(health, maxHealth);
+        drawShieldBar(shieldHealth, maxShieldHealth); // Draw shield bar if active
         drawAmmoCounter(ammo, maxAmmo);
         drawScore(score);
         drawTimer(timeSeconds);
         drawLevelIndicator(level);
         drawCrosshair();
         
+        // Powerup indicators
+        if (speedBoostTime > 0 || damageBoostTime > 0 || invincibilityTime > 0) {
+            drawPowerupIndicators(speedBoostTime, damageBoostTime, invincibilityTime);
+        }
+        
         endHUD();
     }
-    
+
     // Full draw with interaction prompt
     void drawWithPrompt(int health, int maxHealth, int ammo, int maxAmmo, int score, 
-                        int timeSeconds, int level, const char* interactionPrompt) {
+                        int timeSeconds, int level, const char* interactionPrompt,
+                        float speedBoostTime = 0.0f, float damageBoostTime = 0.0f, float invincibilityTime = 0.0f,
+                        float shieldHealth = 0.0f, float maxShieldHealth = 100.0f) {
         beginHUD();
+        
+        // Near-death grey overlay FIRST
+        float healthPercent = (float)health / (float)maxHealth;
+        drawNearDeathOverlay(healthPercent);
         
         if (damageFlash > 0) {
             drawDamageOverlay(damageFlash);
         }
         
+        // Invincibility effect overlay
+        if (invincibilityTime > 0) {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+            float pulse = sin(animTime * 10.0f) * 0.1f + 0.1f;
+            glColor4f(1.0f, 0.85f, 0.2f, pulse);
+            glBegin(GL_QUADS);
+            glVertex2f(0, 0);
+            glVertex2f(screenWidth, 0);
+            glVertex2f(screenWidth, screenHeight);
+            glVertex2f(0, screenHeight);
+            glEnd();
+            glDisable(GL_BLEND);
+        }
+        
         drawHealthBar(health, maxHealth);
+        drawShieldBar(shieldHealth, maxShieldHealth);
         drawAmmoCounter(ammo, maxAmmo);
         drawScore(score);
         drawTimer(timeSeconds);
         drawLevelIndicator(level);
         drawCrosshair();
+        
+        // Powerup indicators
+        if (speedBoostTime > 0 || damageBoostTime > 0 || invincibilityTime > 0) {
+            drawPowerupIndicators(speedBoostTime, damageBoostTime, invincibilityTime);
+        }
         
         if (interactionPrompt && interactionPrompt[0] != '\0') {
             drawInteractionPrompt(interactionPrompt);
@@ -801,23 +1199,50 @@ public:
         
         endHUD();
     }
-    
+
     // Full draw with more info
     void drawFull(int health, int maxHealth, int ammo, int maxAmmo, int score, 
-                  int timeSeconds, int level, float objectiveDist, float spread = 0.0f, bool enemyInSight = false) {
+                  int timeSeconds, int level, float objectiveDist, float spread = 0.0f, bool enemyInSight = false,
+                  float speedBoostTime = 0.0f, float damageBoostTime = 0.0f, float invincibilityTime = 0.0f,
+                  float shieldHealth = 0.0f, float maxShieldHealth = 100.0f) {
         beginHUD();
+        
+        // Near-death grey overlay FIRST
+        float healthPercent = (float)health / (float)maxHealth;
+        drawNearDeathOverlay(healthPercent);
         
         if (damageFlash > 0) {
             drawDamageOverlay(damageFlash);
         }
         
+        // Invincibility effect overlay
+        if (invincibilityTime > 0) {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+            float pulse = sin(animTime * 10.0f) * 0.1f + 0.1f;
+            glColor4f(1.0f, 0.85f, 0.2f, pulse);
+            glBegin(GL_QUADS);
+            glVertex2f(0, 0);
+            glVertex2f(screenWidth, 0);
+            glVertex2f(screenWidth, screenHeight);
+            glVertex2f(0, screenHeight);
+            glEnd();
+            glDisable(GL_BLEND);
+        }
+        
         drawHealthBar(health, maxHealth);
+        drawShieldBar(shieldHealth, maxShieldHealth);
         drawAmmoCounter(ammo, maxAmmo);
         drawScore(score);
         drawTimer(timeSeconds);
         drawLevelIndicator(level);
         drawObjectiveIndicator(objectiveDist);
         drawCrosshair(spread, enemyInSight);
+        
+        // Powerup indicators
+        if (speedBoostTime > 0 || damageBoostTime > 0 || invincibilityTime > 0) {
+            drawPowerupIndicators(speedBoostTime, damageBoostTime, invincibilityTime);
+        }
         
         endHUD();
     }

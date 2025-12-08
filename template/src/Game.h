@@ -93,6 +93,12 @@ public:
     // Muzzle flash
     float muzzleFlashTime;
     
+    // Victory shake system (for Level 2 - all enemies killed)
+    bool victoryShakeActive;
+    float victoryShakeTime;
+    float victoryShakeDuration;
+    float victoryShakeIntensity;
+    
     // Epic level transition system
     bool isTransitioning;
     float transitionTime;
@@ -121,6 +127,10 @@ public:
         nearInteractableIndex = -1;
         footstepTimer = 0.0f;
         wasMoving = false;
+        victoryShakeActive = false;
+        victoryShakeTime = 0.0f;
+        victoryShakeDuration = 2.0f;
+        victoryShakeIntensity = 0.0f;
         isTransitioning = false;
         transitionTime = 0.0f;
         transitionDuration = 4.0f;
@@ -195,6 +205,8 @@ public:
     
     void startGame() {
         GAME_LOG("Game::startGame START\n");
+        // Stop any lingering win/lose sounds from previous game
+        sound.stopWinLoseSound();
         currentLevelNum = 1;
         GAME_LOG("Game::startGame calling loadLevel(1)\n");
         loadLevel(currentLevelNum);
@@ -221,11 +233,13 @@ public:
             // Setup facility lighting
             lighting.setupForLevel(LEVEL_1_FACILITY);
             GAME_LOG("Game::loadLevel lighting setup done\n");
+            player.currentBoundary = BOUNDARY; // Indoor level boundary
         } else if (levelNum == 2) {
             GAME_LOG("Game::loadLevel calling currentLevel.loadLevel2()\n");
             currentLevel.loadLevel2();
             // Setup hell arena lighting
             lighting.setupForLevel(LEVEL_2_HELL_ARENA);
+            player.currentBoundary = BOUNDARY_LEVEL2; // Larger outdoor level boundary
         }
         
         GAME_LOG("Game::loadLevel setting player position\n");
@@ -241,10 +255,11 @@ public:
             glFogf(GL_FOG_START, 20.0f);
             glFogf(GL_FOG_END, 60.0f);
         } else {
-            float fogColor[] = {0.15f, 0.05f, 0.02f, 1.0f};
+            // Level 2 - Hell fog that changes with day/night
+            float fogColor[] = {0.25f, 0.08f, 0.05f, 1.0f}; // Reddish hell fog
             glFogfv(GL_FOG_COLOR, fogColor);
-            glFogf(GL_FOG_START, 40.0f);
-            glFogf(GL_FOG_END, 100.0f);
+            glFogf(GL_FOG_START, 60.0f);  // Increased for larger level
+            glFogf(GL_FOG_END, 150.0f);   // Much farther for open world
         }
     }
     
@@ -427,6 +442,20 @@ public:
             }
         }
         
+        // Check BOSS PROJECTILE hits (uses per-projectile damage from config)
+        for (int i = 0; i < currentLevel.numEnemies; i++) {
+            if (currentLevel.enemies[i].type == ENEMY_BOSS && currentLevel.enemies[i].active) {
+                int projDamage = currentLevel.enemies[i].checkProjectileHitDamage(player.position, 1.2f);
+                if (projDamage > 0) {
+                    // Hit by boss projectile!
+                    Vector3 knockbackDir = player.position - currentLevel.enemies[i].position;
+                    knockbackDir.y = 0;
+                    player.takeDamage(projDamage, knockbackDir);
+                    sound.playSound(Sounds::SFX_PLAYER_HURT);
+                }
+            }
+        }
+        
         // Update enemy health bar visibility based on line of sight
         updateEnemyHealthBarVisibility();
         
@@ -456,15 +485,36 @@ public:
         // Check win/lose conditions (but not if we're already transitioning!)
         if (player.isDead()) {
             onGameOver();
-        } else if (!isTransitioning && currentLevel.isComplete()) {
-            onLevelComplete();
+        } else if (!isTransitioning && !victoryShakeActive && currentLevel.isComplete()) {
+            // For Level 2, trigger victory shake instead of direct win
+            if (currentLevel.levelID == LEVEL_2_HELL_ARENA) {
+                startVictoryShake();
+            } else {
+                onLevelComplete();
+            }
         } else if (currentLevel.isTimeUp()) {
             onGameOver();
         }
         
-        // Check lava damage in level 2
-        if (currentLevel.hasLava && player.position.y < currentLevel.lavaHeight + PLAYER_HEIGHT + 0.5f) {
-            player.takeDamage(5);
+        // Update victory shake if active
+        if (victoryShakeActive) {
+            updateVictoryShake();
+        }
+        
+        // Check lava damage in level 2 with invincibility frames
+        if (currentLevel.hasLava) {
+            bool inLava = player.position.y < currentLevel.lavaHeight + PLAYER_HEIGHT + 0.5f;
+            player.updateLavaState(inLava, deltaTime);
+            
+            if (inLava && !player.isInLavaInvincible()) {
+                player.takeLavaDamage(8); // Damage with invincibility frames and upward boost
+                // Spawn lava splash particles
+                for (int i = 0; i < 10; i++) {
+                    spawnParticle(player.position, 
+                        Vector3((rand() % 100 - 50) / 100.0f, 2.0f + (rand() % 100) / 50.0f, (rand() % 100 - 50) / 100.0f),
+                        1.0f, 0.3f, 0.0f);
+                }
+            }
         }
     }
     
@@ -483,6 +533,26 @@ public:
                     keycards[numKeycards++] = item.keycardID;
                     player.addScore(50);
                 }
+                break;
+            case COLLECT_SPEED_BOOST:
+                player.activateSpeedBoost((float)item.value);
+                player.addScore(25);
+                break;
+            case COLLECT_DAMAGE_BOOST:
+                player.activateDamageBoost((float)item.value);
+                player.addScore(25);
+                break;
+            case COLLECT_INVINCIBILITY:
+                player.activateInvincibility((float)item.value);
+                player.addScore(50);
+                break;
+            case COLLECT_MAX_AMMO:
+                player.setMaxAmmo();
+                player.addScore(30);
+                break;
+            case COLLECT_SHIELD:
+                player.activateShield((float)item.value);
+                player.addScore(50);
                 break;
         }
         sound.playSound(Sounds::SFX_BUTTON_CLICK); // Use as pickup sound
@@ -681,7 +751,9 @@ public:
         }
         
         if (hitEnemy >= 0) {
-            currentLevel.enemies[hitEnemy].takeDamage(WEAPON_DAMAGE);
+            // Apply damage with damage boost multiplier
+            int damage = (int)(WEAPON_DAMAGE * player.getDamageMultiplier());
+            currentLevel.enemies[hitEnemy].takeDamage(damage);
             
             // Spawn blood particles
             Vector3 hitPoint = shootRay.getPoint(closestHit);
@@ -917,6 +989,69 @@ public:
         }
     }
     
+    // ============================================
+    // VICTORY SHAKE SYSTEM (Level 2 - All Enemies Killed)
+    // ============================================
+    void startVictoryShake() {
+        victoryShakeActive = true;
+        victoryShakeTime = 0.0f;
+        victoryShakeDuration = 2.5f;  // 2.5 seconds of epic shake
+        victoryShakeIntensity = 1.0f;
+        
+        // Play epic victory sound
+        sound.playSound(Sounds::SFX_SHOCKWAVE);
+        
+        // Start camera shake
+        camera.addShake(0.8f, victoryShakeDuration);
+        
+        // Spawn victory particles around player
+        for (int i = 0; i < 50; i++) {
+            float angle = (float)i / 50.0f * 6.28318f;
+            float radius = 5.0f + (rand() % 100) / 10.0f;
+            Vector3 pos = player.position;
+            pos.x += cosf(angle) * radius;
+            pos.z += sinf(angle) * radius;
+            pos.y += (rand() % 100) / 20.0f;
+            
+            spawnParticle(pos, 
+                Vector3(cosf(angle) * 2.0f, 3.0f + (rand() % 100) / 30.0f, sinf(angle) * 2.0f),
+                1.0f, 0.8f, 0.2f);
+        }
+    }
+    
+    void updateVictoryShake() {
+        victoryShakeTime += deltaTime;
+        
+        // Calculate shake intensity (starts strong, fades out)
+        float progress = victoryShakeTime / victoryShakeDuration;
+        victoryShakeIntensity = (1.0f - progress) * 0.8f;
+        
+        // Apply ongoing shake
+        if (progress < 1.0f) {
+            // Spawn particles throughout the shake
+            if (rand() % 5 == 0) {
+                float angle = (float)(rand() % 628) / 100.0f;
+                float radius = 10.0f + (rand() % 150) / 10.0f;
+                Vector3 pos = player.position;
+                pos.x += cosf(angle) * radius;
+                pos.z += sinf(angle) * radius;
+                pos.y += (rand() % 50) / 10.0f;
+                
+                // Golden victory particles
+                spawnParticle(pos, 
+                    Vector3(0, 4.0f + (rand() % 100) / 50.0f, 0),
+                    1.0f, 0.9f, 0.1f);
+            }
+        }
+        
+        // When shake complete, trigger victory
+        if (victoryShakeTime >= victoryShakeDuration) {
+            victoryShakeActive = false;
+            victoryShakeIntensity = 0.0f;
+            onLevelComplete();
+        }
+    }
+    
     void onGameOver() {
         state = STATE_GAME_OVER;
         menu.setMenu(MENU_GAME_OVER);
@@ -924,7 +1059,10 @@ public:
         menu.enemiesKilled = player.enemiesKilled;
         menu.timeElapsed = currentLevel.levelTime;
         captureMouse(false);
+        // Play lose sound! (MP3 needs MCI)
+        sound.stopMusic();
         sound.playSound(Sounds::SFX_PLAYER_DEAD);
+        sound.playSoundMP3(Sounds::SFX_LOSE);
     }
     
     void onLevelComplete() {
@@ -938,7 +1076,9 @@ public:
             menu.finalScore = player.score;
             menu.enemiesKilled = player.enemiesKilled;
             menu.timeElapsed = currentLevel.levelTime;
-            sound.playSound(Sounds::SFX_SHOCKWAVE);
+            // Play WIN sound! (MP3 needs MCI)
+            sound.stopMusic();
+            sound.playSoundMP3(Sounds::SFX_WIN);
             captureMouse(false);
         } else {
             // SKIP THE MENU - Go directly to epic transition animation!
@@ -1193,6 +1333,38 @@ public:
     
     void render() {
         GAME_LOG("Game::render START\n");
+        
+        // Set clear color based on current level and boss phase
+        if (state == STATE_PLAYING && currentLevelNum == 2) {
+            // Check if boss is active (Phase 2)
+            bool bossActive = currentLevel.bossEnemyIndex >= 0 && 
+                              currentLevel.bossEnemyIndex < currentLevel.numEnemies &&
+                              currentLevel.enemies[currentLevel.bossEnemyIndex].active;
+            
+            if (bossActive) {
+                // BOSS PHASE - Blue/stormy sky!
+                glClearColor(0.02f, 0.05f, 0.15f, 1.0f);
+                float fogColor[] = {0.05f, 0.08f, 0.2f, 1.0f};
+                glFogfv(GL_FOG_COLOR, fogColor);
+                glFogf(GL_FOG_START, 40.0f);
+                glFogf(GL_FOG_END, 120.0f);
+            } else {
+                // HELL ARENA - Red/dark red background
+                glClearColor(0.15f, 0.03f, 0.03f, 1.0f);
+                float fogColor[] = {0.2f, 0.05f, 0.02f, 1.0f};
+                glFogfv(GL_FOG_COLOR, fogColor);
+                glFogf(GL_FOG_START, 50.0f);
+                glFogf(GL_FOG_END, 150.0f);
+            }
+        } else {
+            // Default dark blue for Level 1 / menus
+            glClearColor(0.02f, 0.02f, 0.05f, 1.0f);
+            float fogColor[] = {0.02f, 0.02f, 0.05f, 1.0f};
+            glFogfv(GL_FOG_COLOR, fogColor);
+            glFogf(GL_FOG_START, 30.0f);
+            glFogf(GL_FOG_END, 80.0f);
+        }
+        
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
         if (state == STATE_MAIN_MENU || state == STATE_INSTRUCTIONS) {
@@ -1391,14 +1563,23 @@ public:
         }
         
         // Show "All Enemies Eliminated" message when exit opens
+        // Level 2 (boss) has no exit - show different message
         if (currentLevel.areAllEnemiesKilled() && !currentLevel.exitDoor.isOpen) {
+            const char* eliminatedMsg;
+            if (currentLevelNum == 2) {
+                eliminatedMsg = interactionPrompt[0] ? interactionPrompt : "BOSS DEFEATED! VICTORY!";
+            } else {
+                eliminatedMsg = interactionPrompt[0] ? interactionPrompt : "All Enemies Eliminated! Find the Exit!";
+            }
             hud.drawWithPrompt(
                 player.health, player.maxHealth,
                 player.ammo, player.maxAmmo,
                 player.score,
                 currentLevel.getRemainingTime(),
                 currentLevelNum,
-                interactionPrompt[0] ? interactionPrompt : "All Enemies Eliminated! Find the Exit!"
+                eliminatedMsg,
+                player.speedBoostTime, player.damageBoostTime, player.invincibilityPowerupTime,
+                player.shieldHealth, player.maxShieldHealth
             );
         } else if (interactionPrompt[0]) {
             hud.drawWithPrompt(
@@ -1407,7 +1588,9 @@ public:
                 player.score,
                 currentLevel.getRemainingTime(),
                 currentLevelNum,
-                interactionPrompt
+                interactionPrompt,
+                player.speedBoostTime, player.damageBoostTime, player.invincibilityPowerupTime,
+                player.shieldHealth, player.maxShieldHealth
             );
         } else {
             hud.draw(
@@ -1415,7 +1598,9 @@ public:
                 player.ammo, player.maxAmmo,
                 player.score,
                 currentLevel.getRemainingTime(),
-                currentLevelNum
+                currentLevelNum,
+                player.speedBoostTime, player.damageBoostTime, player.invincibilityPowerupTime,
+                player.shieldHealth, player.maxShieldHealth
             );
         }
     }
