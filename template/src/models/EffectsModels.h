@@ -6,6 +6,7 @@
 #define EFFECTS_MODELS_H
 
 #include "ModelUtils.h"
+#include "../TextureManager.h"
 #include <vector>
 #include <cmath>
 
@@ -150,40 +151,66 @@ namespace EffectsModels {
         glPushMatrix();
         enableGlow();
         
-        // Central flash - smaller
-        glColor4f(1.0f, 0.95f, 0.6f, intensity);
-        drawSphere(0.1f * size, 8);
-        
-        // Fewer, smaller flash spikes
-        int numSpikes = 6;
-        for (int i = 0; i < numSpikes; i++) {
-            float angle = (360.0f / numSpikes) * i;
-            float spikeLen = (0.15f + (i % 2) * 0.08f) * size;
+        // Try to use textured muzzle flash billboard
+        if (TextureManager::isLoaded(TEX_MUZZLE_FLASH)) {
+            glDisable(GL_LIGHTING);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE);  // Additive blending
+            glEnable(GL_TEXTURE_2D);
+            TextureManager::bind(TEX_MUZZLE_FLASH);
             
-            glPushMatrix();
-            glRotatef(angle, 0, 0, 1);
+            float flashSize = 0.35f * size;
+            glColor4f(1.0f, 0.9f, 0.7f, intensity);
             
-            // Inner spike
-            glColor4f(1.0f, 0.9f, 0.5f, intensity * 0.9f);
-            glBegin(GL_TRIANGLES);
-            glVertex3f(-0.02f * size, 0, 0);
-            glVertex3f(0.02f * size, 0, 0);
-            glVertex3f(0, spikeLen, 0);
+            // Draw billboard quad facing camera
+            glBegin(GL_QUADS);
+            glTexCoord2f(0, 0); glVertex3f(-flashSize, -flashSize, 0);
+            glTexCoord2f(1, 0); glVertex3f(flashSize, -flashSize, 0);
+            glTexCoord2f(1, 1); glVertex3f(flashSize, flashSize, 0);
+            glTexCoord2f(0, 1); glVertex3f(-flashSize, flashSize, 0);
             glEnd();
             
+            TextureManager::unbind();
+            glDisable(GL_TEXTURE_2D);
+            glDisable(GL_BLEND);
+            glEnable(GL_LIGHTING);
+        } else {
+            // Fallback to procedural muzzle flash
+            // Central flash - smaller
+            glColor4f(1.0f, 0.95f, 0.6f, intensity);
+            drawSphere(0.1f * size, 8);
+            
+            // Fewer, smaller flash spikes
+            int numSpikes = 6;
+            for (int i = 0; i < numSpikes; i++) {
+                float angle = (360.0f / numSpikes) * i;
+                float spikeLen = (0.15f + (i % 2) * 0.08f) * size;
+                
+                glPushMatrix();
+                glRotatef(angle, 0, 0, 1);
+                
+                // Inner spike
+                glColor4f(1.0f, 0.9f, 0.5f, intensity * 0.9f);
+                glBegin(GL_TRIANGLES);
+                glVertex3f(-0.02f * size, 0, 0);
+                glVertex3f(0.02f * size, 0, 0);
+                glVertex3f(0, spikeLen, 0);
+                glEnd();
+                
+                glPopMatrix();
+            }
+            
+            // Forward flash cone - smaller
+            glColor4f(1.0f, 0.85f, 0.4f, intensity * 0.6f);
+            glPushMatrix();
+            glRotatef(-90, 1, 0, 0);
+            gluCylinder(gluNewQuadric(), 0.05f * size, 0.12f * size, 0.2f * size, 10, 1);
             glPopMatrix();
+            
+            // Smaller outer glow
+            glColor4f(1.0f, 0.5f, 0.1f, intensity * 0.2f);
+            drawSphere(0.2f * size, 10);
         }
-        
-        // Forward flash cone - smaller
-        glColor4f(1.0f, 0.85f, 0.4f, intensity * 0.6f);
-        glPushMatrix();
-        glRotatef(-90, 1, 0, 0);
-        gluCylinder(gluNewQuadric(), 0.05f * size, 0.12f * size, 0.2f * size, 10, 1);
-        glPopMatrix();
-        
-        // Smaller outer glow
-        glColor4f(1.0f, 0.5f, 0.1f, intensity * 0.2f);
-        drawSphere(0.2f * size, 10);
         
         disableGlow();
         glPopMatrix();

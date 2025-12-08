@@ -9,6 +9,7 @@
 #include "GameConfig.h"
 #include "Camera.h"
 #include "LowPolyModels.h"
+#include "TextureManager.h"
 #include <glut.h>
 
 class Player {
@@ -681,6 +682,9 @@ public:
             // Player position is at eye height, so subtract player height to get feet position
             float groundY = position.y - PLAYER_HEIGHT;
             glTranslatef(position.x, groundY, position.z);
+            
+            // NOTE: Procedural player model doesn't have texture coordinates
+            // The model uses vertex colors via setColor() in LowPolyModels
             
             // During parkour, draw vault pose instead of normal pose
             if (isDoingParkour) {

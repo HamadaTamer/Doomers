@@ -8,6 +8,7 @@
 #include "Vector3.h"
 #include "GameConfig.h"
 #include "LowPolyModels.h"
+#include "TextureManager.h"
 #include <glut.h>
 
 enum CollectibleType {
@@ -146,13 +147,13 @@ public:
             glColor4f(1, 1, 1, alpha);
         }
         
-        // Draw based on type
+        // Draw based on type - with texture support
         switch (type) {
             case COLLECT_HEALTH:
-                LowPolyModels::drawHealthPack();
+                drawTexturedHealthPack();
                 break;
             case COLLECT_AMMO:
-                LowPolyModels::drawAmmoBox();
+                drawTexturedAmmoBox();
                 break;
             case COLLECT_KEYCARD:
                 drawKeycard();
@@ -182,6 +183,126 @@ public:
         
         // Draw glow effect
         drawGlow();
+    }
+    
+    void drawTexturedHealthPack() {
+        // Use 3D health pack model if available
+        if (ModelLoader::isLoaded(MODEL_HEALTHPACK)) {
+            glPushMatrix();
+            glTranslatef(0, 0.2f, 0);
+            float spin = rotation;  // Use the collectible's rotation
+            glRotatef(spin, 0, 1, 0);
+            glScalef(1.2f, 1.2f, 1.2f);  // Scale up the model
+            ModelLoader::draw(MODEL_HEALTHPACK);
+            glPopMatrix();
+        } else if (TextureManager::isLoaded(TEX_HEALTHPACK)) {
+            glPushMatrix();
+            glTranslatef(0, 0.15f, 0);
+            
+            // White box with health texture
+            TextureManager::bind(TEX_HEALTHPACK);
+            glEnable(GL_TEXTURE_2D);
+            glColor3f(1.0f, 1.0f, 1.0f);
+            
+            float size = 0.4f;
+            glBegin(GL_QUADS);
+            // Front
+            glNormal3f(0, 0, 1);
+            glTexCoord2f(0, 0); glVertex3f(-size, -size, size);
+            glTexCoord2f(1, 0); glVertex3f(size, -size, size);
+            glTexCoord2f(1, 1); glVertex3f(size, size, size);
+            glTexCoord2f(0, 1); glVertex3f(-size, size, size);
+            // Back
+            glNormal3f(0, 0, -1);
+            glTexCoord2f(0, 0); glVertex3f(size, -size, -size);
+            glTexCoord2f(1, 0); glVertex3f(-size, -size, -size);
+            glTexCoord2f(1, 1); glVertex3f(-size, size, -size);
+            glTexCoord2f(0, 1); glVertex3f(size, size, -size);
+            // Left
+            glNormal3f(-1, 0, 0);
+            glTexCoord2f(0, 0); glVertex3f(-size, -size, -size);
+            glTexCoord2f(1, 0); glVertex3f(-size, -size, size);
+            glTexCoord2f(1, 1); glVertex3f(-size, size, size);
+            glTexCoord2f(0, 1); glVertex3f(-size, size, -size);
+            // Right
+            glNormal3f(1, 0, 0);
+            glTexCoord2f(0, 0); glVertex3f(size, -size, size);
+            glTexCoord2f(1, 0); glVertex3f(size, -size, -size);
+            glTexCoord2f(1, 1); glVertex3f(size, size, -size);
+            glTexCoord2f(0, 1); glVertex3f(size, size, size);
+            // Top
+            glNormal3f(0, 1, 0);
+            glTexCoord2f(0, 0); glVertex3f(-size, size, size);
+            glTexCoord2f(1, 0); glVertex3f(size, size, size);
+            glTexCoord2f(1, 1); glVertex3f(size, size, -size);
+            glTexCoord2f(0, 1); glVertex3f(-size, size, -size);
+            glEnd();
+            
+            TextureManager::unbind();
+            glPopMatrix();
+        } else {
+            LowPolyModels::drawHealthPack();
+        }
+    }
+    
+    void drawTexturedAmmoBox() {
+        // Use 3D ammo magazine model if available
+        if (ModelLoader::isLoaded(MODEL_AMMO_MAGAZINE)) {
+            glPushMatrix();
+            glTranslatef(0, 0.3f, 0);
+            float spin = rotation;  // Use the collectible's rotation
+            glRotatef(spin, 0, 1, 0);
+            glScalef(0.8f, 0.8f, 0.8f);  // Smaller magazine model
+            ModelLoader::draw(MODEL_AMMO_MAGAZINE);
+            glPopMatrix();
+        } else if (TextureManager::isLoaded(TEX_AMMO)) {
+            glPushMatrix();
+            glTranslatef(0, 0.15f, 0);
+            
+            // Green ammo box with texture
+            TextureManager::bind(TEX_AMMO);
+            glEnable(GL_TEXTURE_2D);
+            glColor3f(0.7f, 0.8f, 0.6f);  // Slight green tint
+            
+            float sizeX = 0.35f, sizeY = 0.25f, sizeZ = 0.3f;
+            glBegin(GL_QUADS);
+            // Front
+            glNormal3f(0, 0, 1);
+            glTexCoord2f(0, 0); glVertex3f(-sizeX, -sizeY, sizeZ);
+            glTexCoord2f(1, 0); glVertex3f(sizeX, -sizeY, sizeZ);
+            glTexCoord2f(1, 1); glVertex3f(sizeX, sizeY, sizeZ);
+            glTexCoord2f(0, 1); glVertex3f(-sizeX, sizeY, sizeZ);
+            // Back
+            glNormal3f(0, 0, -1);
+            glTexCoord2f(0, 0); glVertex3f(sizeX, -sizeY, -sizeZ);
+            glTexCoord2f(1, 0); glVertex3f(-sizeX, -sizeY, -sizeZ);
+            glTexCoord2f(1, 1); glVertex3f(-sizeX, sizeY, -sizeZ);
+            glTexCoord2f(0, 1); glVertex3f(sizeX, sizeY, -sizeZ);
+            // Left
+            glNormal3f(-1, 0, 0);
+            glTexCoord2f(0, 0); glVertex3f(-sizeX, -sizeY, -sizeZ);
+            glTexCoord2f(1, 0); glVertex3f(-sizeX, -sizeY, sizeZ);
+            glTexCoord2f(1, 1); glVertex3f(-sizeX, sizeY, sizeZ);
+            glTexCoord2f(0, 1); glVertex3f(-sizeX, sizeY, -sizeZ);
+            // Right
+            glNormal3f(1, 0, 0);
+            glTexCoord2f(0, 0); glVertex3f(sizeX, -sizeY, sizeZ);
+            glTexCoord2f(1, 0); glVertex3f(sizeX, -sizeY, -sizeZ);
+            glTexCoord2f(1, 1); glVertex3f(sizeX, sizeY, -sizeZ);
+            glTexCoord2f(0, 1); glVertex3f(sizeX, sizeY, sizeZ);
+            // Top
+            glNormal3f(0, 1, 0);
+            glTexCoord2f(0, 0); glVertex3f(-sizeX, sizeY, sizeZ);
+            glTexCoord2f(1, 0); glVertex3f(sizeX, sizeY, sizeZ);
+            glTexCoord2f(1, 1); glVertex3f(sizeX, sizeY, -sizeZ);
+            glTexCoord2f(0, 1); glVertex3f(-sizeX, sizeY, -sizeZ);
+            glEnd();
+            
+            TextureManager::unbind();
+            glPopMatrix();
+        } else {
+            LowPolyModels::drawAmmoBox();
+        }
     }
     
     void drawKeycard() {

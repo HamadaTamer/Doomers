@@ -12,6 +12,7 @@
 #include "models/EnemyModels.h"
 #include "models/EnvironmentModels.h"
 #include "models/EffectsModels.h"
+#include "ModelLoader.h"  // For AR gun 3D model
 
 // ============================================================================
 // UNIFIED INTERFACE - For backwards compatibility and ease of use
@@ -38,11 +39,43 @@ namespace LowPolyModels {
     
     // -------------------- WEAPON --------------------
     inline void drawWeapon(float recoil, bool firing, bool weaponLightOn, float flashlightIntensity) {
-        WeaponModel::drawAssaultRifleDetailed(recoil, firing, weaponLightOn ? flashlightIntensity : 0.0f);
+        // Try to use the AR 3D model first
+        if (ModelLoader::isLoaded(MODEL_AR_GUN)) {
+            glPushMatrix();
+            // Apply recoil
+            glTranslatef(0, 0, -recoil * 0.1f);  // Recoil moves gun backward (-Z)
+            glRotatef(recoil * 5, 1, 0, 0);
+            // Scale and orient the AR model properly
+            // Model imports with different axes - rotate to point barrel FORWARD (-Z in world)
+            glRotatef(180, 0, 1, 0);  // Turn around to face forward
+            glScalef(0.8f, 0.8f, 0.8f);  // Scale down slightly
+            ModelLoader::draw(MODEL_AR_GUN, 1.0f);
+            glPopMatrix();
+        } else {
+            // Fall back to procedural weapon
+            WeaponModel::drawAssaultRifleDetailed(recoil, firing, weaponLightOn ? flashlightIntensity : 0.0f);
+        }
     }
     
     inline void drawWeaponFirstPerson(float recoil, float bob, bool firing, bool weaponLightOn, bool aimDownSights) {
-        WeaponModel::drawWeaponFirstPerson(recoil, bob, firing, weaponLightOn ? 1.0f : 0.0f);
+        // Try to use the AR 3D model for first person too
+        if (ModelLoader::isLoaded(MODEL_AR_GUN)) {
+            glPushMatrix();
+            // Position for first person view - right side, down, forward
+            glTranslatef(0.25f, -0.20f, -0.5f);
+            // Apply bob and recoil
+            float bobY = sin(bob * 2) * 0.01f;
+            float bobX = cos(bob) * 0.005f;
+            glTranslatef(bobX, bobY - recoil * 0.02f, recoil * 0.08f);  // Recoil pushes back (+Z toward camera)
+            glRotatef(recoil * 3, 1, 0, 0);  // Tilt up from recoil
+            // Orient model - barrel points FORWARD (-Z)
+            glRotatef(180, 0, 1, 0);  // Turn around to face forward
+            glScalef(1.0f, 1.0f, 1.0f);  // Normal scale
+            ModelLoader::draw(MODEL_AR_GUN, 1.0f);
+            glPopMatrix();
+        } else {
+            WeaponModel::drawWeaponFirstPerson(recoil, bob, firing, weaponLightOn ? 1.0f : 0.0f);
+        }
     }
     
     inline void drawArmsFirstPerson(float recoil, float bob) {

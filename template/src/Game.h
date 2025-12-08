@@ -18,6 +18,8 @@
 #include "Menu.h"
 #include "Sound.h"
 #include "LowPolyModels.h"
+#include "TextureManager.h"
+#include "ModelLoader.h"
 #include <glut.h>
 #include <time.h>
 #include <windows.h>
@@ -153,6 +155,14 @@ public:
     void init() {
         // Setup player-camera link
         player.setCamera(&camera);
+        
+        // ============================================
+        // INITIALIZE TEXTURE AND MODEL SYSTEMS
+        // ============================================
+        GAME_LOG("Initializing TextureManager...");
+        TextureManager::init();
+        GAME_LOG("Initializing ModelLoader...");
+        ModelLoader::init();
         
         // ============================================
         // GPU PERFORMANCE OPTIMIZATIONS
@@ -361,6 +371,7 @@ public:
         
         // Enable/disable third person light based on camera mode
         lighting.setThirdPersonLight(camera.mode == CAMERA_THIRD_PERSON);
+        lighting.setFirstPersonMode(camera.mode == CAMERA_FIRST_PERSON);
         
         // Update level
         currentLevel.update(deltaTime, player.position);

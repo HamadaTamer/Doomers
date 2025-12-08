@@ -132,7 +132,7 @@
 // ==================== LIGHTING ====================
 #define MAX_POINT_LIGHTS 4
 #define FLASHLIGHT_RANGE 20.0f
-#define FLASHLIGHT_ANGLE 30.0f
+#define FLASHLIGHT_ANGLE 45.0f
 
 // ==================== PARTICLES ====================
 #define MAX_PARTICLES 100

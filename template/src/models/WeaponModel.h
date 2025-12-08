@@ -7,6 +7,7 @@
 
 #include "ModelUtils.h"
 #include "PlayerModel.h"
+#include "../TextureManager.h"
 
 namespace WeaponModel {
 
@@ -23,15 +24,25 @@ namespace WeaponModel {
         float scale = 1.3f; // Bigger weapon
         glScalef(scale, scale, scale);
         
-        // === MAIN RECEIVER ===
-        setColorMetallic(0.1f, 0.1f, 0.12f);
-        drawBox(0.065f, 0.11f, 0.55f);
+        // === MAIN RECEIVER === (TEXTURED)
+        if (TextureManager::isLoaded(TEX_WEAPON_METAL)) {
+            GLuint metalTex = TextureManager::get(TEX_WEAPON_METAL);
+            drawTexturedBox(0.065f, 0.11f, 0.55f, metalTex);
+        } else {
+            setColorMetallic(0.1f, 0.1f, 0.12f);
+            drawBox(0.065f, 0.11f, 0.55f);
+        }
         
-        // Upper receiver with rails
-        setColorMetallic(0.08f, 0.08f, 0.1f);
+        // Upper receiver with rails (TEXTURED)
         glPushMatrix();
         glTranslatef(0, 0.065f, -0.08f);
-        drawBox(0.055f, 0.045f, 0.4f);
+        if (TextureManager::isLoaded(TEX_WEAPON_METAL)) {
+            GLuint metalTex = TextureManager::get(TEX_WEAPON_METAL);
+            drawTexturedBox(0.055f, 0.045f, 0.4f, metalTex);
+        } else {
+            setColorMetallic(0.08f, 0.08f, 0.1f);
+            drawBox(0.055f, 0.045f, 0.4f);
+        }
         
         // Picatinny rail detail
         setColorMetallic(0.12f, 0.12f, 0.14f);
@@ -159,28 +170,38 @@ namespace WeaponModel {
         glPopMatrix();
         glPopMatrix();
         
-        // === PISTOL GRIP ===
-        setColor(0.07f, 0.05f, 0.03f);
+        // === PISTOL GRIP === (TEXTURED)
         glPushMatrix();
         glTranslatef(0, -0.12f, 0.2f);
         glRotatef(-18, 1, 0, 0);
-        drawBox(0.04f, 0.14f, 0.05f);
-        // Grip texture lines
-        setColor(0.05f, 0.03f, 0.02f);
-        for (int i = 0; i < 4; i++) {
-            glPushMatrix();
-            glTranslatef(0.021f, -0.03f + i * 0.025f, 0);
-            drawBox(0.003f, 0.012f, 0.045f);
-            glPopMatrix();
+        if (TextureManager::isLoaded(TEX_WEAPON_GRIP)) {
+            GLuint gripTex = TextureManager::get(TEX_WEAPON_GRIP);
+            drawTexturedBox(0.04f, 0.14f, 0.05f, gripTex);
+        } else {
+            setColor(0.07f, 0.05f, 0.03f);
+            drawBox(0.04f, 0.14f, 0.05f);
+            // Grip texture lines
+            setColor(0.05f, 0.03f, 0.02f);
+            for (int i = 0; i < 4; i++) {
+                glPushMatrix();
+                glTranslatef(0.021f, -0.03f + i * 0.025f, 0);
+                drawBox(0.003f, 0.012f, 0.045f);
+                glPopMatrix();
+            }
         }
         glPopMatrix();
         
-        // === FOREGRIP (Angled) ===
-        setColor(0.07f, 0.05f, 0.03f);
+        // === FOREGRIP (Angled) === (TEXTURED)
         glPushMatrix();
         glTranslatef(0, -0.08f, -0.18f);
         glRotatef(-25, 1, 0, 0);
-        drawBox(0.035f, 0.12f, 0.045f);
+        if (TextureManager::isLoaded(TEX_WEAPON_GRIP)) {
+            GLuint gripTex = TextureManager::get(TEX_WEAPON_GRIP);
+            drawTexturedBox(0.035f, 0.12f, 0.045f, gripTex);
+        } else {
+            setColor(0.07f, 0.05f, 0.03f);
+            drawBox(0.035f, 0.12f, 0.045f);
+        }
         glPopMatrix();
         
         // === OPTIC (Red Dot Sight) ===

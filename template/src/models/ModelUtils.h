@@ -67,6 +67,65 @@ namespace ModelUtils {
         glutSolidCube(1.0f);
         glPopMatrix();
     }
+    
+    // Draw a textured box with UV coordinates - for body parts with textures
+    inline void drawTexturedBox(float sx, float sy, float sz, GLuint textureID) {
+        float hx = sx / 2.0f;
+        float hy = sy / 2.0f;
+        float hz = sz / 2.0f;
+        
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+        
+        // Set bright white material so texture shows at full brightness
+        GLfloat white[] = {1.0f, 1.0f, 1.0f, 1.0f};
+        GLfloat bright[] = {0.8f, 0.8f, 0.8f, 1.0f};
+        glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, white);
+        glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, bright);
+        glColor3f(1.0f, 1.0f, 1.0f);  // White to show texture properly
+        
+        glBegin(GL_QUADS);
+        // Front
+        glNormal3f(0, 0, 1);
+        glTexCoord2f(0, 0); glVertex3f(-hx, -hy, hz);
+        glTexCoord2f(1, 0); glVertex3f(hx, -hy, hz);
+        glTexCoord2f(1, 1); glVertex3f(hx, hy, hz);
+        glTexCoord2f(0, 1); glVertex3f(-hx, hy, hz);
+        // Back
+        glNormal3f(0, 0, -1);
+        glTexCoord2f(0, 0); glVertex3f(hx, -hy, -hz);
+        glTexCoord2f(1, 0); glVertex3f(-hx, -hy, -hz);
+        glTexCoord2f(1, 1); glVertex3f(-hx, hy, -hz);
+        glTexCoord2f(0, 1); glVertex3f(hx, hy, -hz);
+        // Left
+        glNormal3f(-1, 0, 0);
+        glTexCoord2f(0, 0); glVertex3f(-hx, -hy, -hz);
+        glTexCoord2f(1, 0); glVertex3f(-hx, -hy, hz);
+        glTexCoord2f(1, 1); glVertex3f(-hx, hy, hz);
+        glTexCoord2f(0, 1); glVertex3f(-hx, hy, -hz);
+        // Right
+        glNormal3f(1, 0, 0);
+        glTexCoord2f(0, 0); glVertex3f(hx, -hy, hz);
+        glTexCoord2f(1, 0); glVertex3f(hx, -hy, -hz);
+        glTexCoord2f(1, 1); glVertex3f(hx, hy, -hz);
+        glTexCoord2f(0, 1); glVertex3f(hx, hy, hz);
+        // Top
+        glNormal3f(0, 1, 0);
+        glTexCoord2f(0, 0); glVertex3f(-hx, hy, hz);
+        glTexCoord2f(1, 0); glVertex3f(hx, hy, hz);
+        glTexCoord2f(1, 1); glVertex3f(hx, hy, -hz);
+        glTexCoord2f(0, 1); glVertex3f(-hx, hy, -hz);
+        // Bottom
+        glNormal3f(0, -1, 0);
+        glTexCoord2f(0, 0); glVertex3f(-hx, -hy, -hz);
+        glTexCoord2f(1, 0); glVertex3f(hx, -hy, -hz);
+        glTexCoord2f(1, 1); glVertex3f(hx, -hy, hz);
+        glTexCoord2f(0, 1); glVertex3f(-hx, -hy, hz);
+        glEnd();
+        
+        glDisable(GL_TEXTURE_2D);
+    }
 
     inline void drawCylinder(float radius, float height, int slices = 16) {
         GLUquadric* quad = gluNewQuadric();

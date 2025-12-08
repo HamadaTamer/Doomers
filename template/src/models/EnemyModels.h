@@ -6,6 +6,7 @@
 #define ENEMY_MODELS_H
 
 #include "ModelUtils.h"
+#include "../TextureManager.h"
 
 namespace EnemyModels {
 
@@ -120,15 +121,21 @@ namespace EnemyModels {
         glPopMatrix();
         glPopMatrix();
 
-        // === TORSO ===
+        // === TORSO === (with ALIEN TEXTURE on main body)
         glPushMatrix();
         glTranslatef(0, 0.9f, 0);
         glRotatef(sin(animPhase * 0.5f) * 8, 0, 0, 1);
         glRotatef(15, 1, 0, 0); // Hunched forward
         
-        // Torn shirt/skin
-        setColor(0.35f, 0.38f, 0.3f);
-        drawBox(0.38f, 0.5f, 0.22f);
+        // TEXTURED TORSO - alien skin texture (alien_15 for zombies)
+        if (TextureManager::isLoaded(TEX_ALIEN_15)) {
+            GLuint zombieTex = TextureManager::get(TEX_ALIEN_15);
+            drawTexturedBox(0.38f, 0.5f, 0.22f, zombieTex);
+        } else {
+            // Fallback to solid color
+            setColor(0.35f, 0.38f, 0.3f);
+            drawBox(0.38f, 0.5f, 0.22f);
+        }
         
         // Large chest wound
         setColor(0.5f, 0.18f, 0.12f);
@@ -379,13 +386,18 @@ namespace EnemyModels {
             glPopMatrix();
         }
 
-        // === TORSO ===
+        // === TORSO === (with ALIEN TEXTURE for demons)
         glPushMatrix();
         glTranslatef(0, 1.0f + breathe, 0);
         
-        // Main body
-        setColor(0.55f, 0.18f, 0.12f);
-        drawBox(0.5f, 0.6f, 0.35f);
+        // TEXTURED Main body - alien skin texture (alien_07 for demons)
+        if (TextureManager::isLoaded(TEX_ALIEN_07)) {
+            GLuint demonTex = TextureManager::get(TEX_ALIEN_07);
+            drawTexturedBox(0.5f, 0.6f, 0.35f, demonTex);
+        } else {
+            setColor(0.55f, 0.18f, 0.12f);
+            drawBox(0.5f, 0.6f, 0.35f);
+        }
         
         // Chest muscles
         setColor(0.5f, 0.15f, 0.1f);

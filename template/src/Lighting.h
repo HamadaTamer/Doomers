@@ -116,15 +116,16 @@ public:
     LightingSystem() {
         emergencyPhase = 0.0f;
         dayNightCycle = 0.0f;
+        isFirstPerson = false;
         
-        // Setup flashlight
+        // Setup flashlight - bright weapon-mounted light
         flashlight.lightID = GL_LIGHT0;
         flashlight.isSpotlight = true;
         flashlight.spotCutoff = FLASHLIGHT_ANGLE;
-        flashlight.spotExponent = 30.0f;
-        flashlight.setColor(1.0f, 0.95f, 0.8f);
-        flashlight.linearAtt = 0.02f;
-        flashlight.quadraticAtt = 0.005f;
+        flashlight.spotExponent = 12.0f;  // Softer falloff at edges
+        flashlight.setColor(1.2f, 1.15f, 1.0f);  // Brighter, slightly warm
+        flashlight.linearAtt = 0.007f;   // Reduced attenuation = longer range
+        flashlight.quadraticAtt = 0.001f;
         
         // Setup emergency lights
         for (int i = 0; i < 4; i++) {
@@ -149,10 +150,16 @@ public:
         thirdPersonLight.enabled = false;
     }
     
+    bool isFirstPerson;  // Track camera mode for lighting
+    
+    void setFirstPersonMode(bool firstPerson) {
+        isFirstPerson = firstPerson;
+    }
+    
     void setupForLevel(int levelID) {
         if (levelID == LEVEL_1_FACILITY) {
-            // Well-lit facility - normal indoor lighting
-            float globalAmbient[] = {0.4f, 0.4f, 0.45f, 1.0f};
+            // Well-lit facility for third person, darker for first person
+            float globalAmbient[] = {0.7f, 0.7f, 0.75f, 1.0f};  // Bright for third person
             glLightModelfv(GL_LIGHT_MODEL_AMBIENT, globalAmbient);
             
             // Bright ceiling lights in corners
@@ -161,9 +168,9 @@ public:
             emergencyLights[2].position = Vector3(-25, 8, 25);
             emergencyLights[3].position = Vector3(25, 8, 25);
             
-            // Set to white/neutral light instead of red emergency
+            // Set to bright white light (not red emergency)
             for (int i = 0; i < 4; i++) {
-                emergencyLights[i].setColor(0.9f, 0.85f, 0.8f);
+                emergencyLights[i].setColor(1.0f, 0.95f, 0.9f);  // Bright white
                 emergencyLights[i].enabled = true;
             }
             
@@ -249,7 +256,10 @@ public:
     
     void update(float deltaTime, const Vector3& playerPos, const Vector3& lookDir) {
         // Update flashlight position and direction
-        flashlight.position = playerPos + Vector3(0, -0.1f, 0);
+        // Position it slightly forward and down from eye level to simulate weapon-mounted light
+        Vector3 lightOffset = lookDir * 0.5f;  // Forward offset in look direction
+        lightOffset.y -= 0.3f;  // Slightly below eye level (chest/weapon height)
+        flashlight.position = playerPos + lightOffset;
         flashlight.direction = lookDir;
         
         // Update third person light - position above and slightly behind player
@@ -260,15 +270,26 @@ public:
         
         for (int i = 0; i < 4; i++) {
             if (emergencyLights[i].enabled) {
-                // Pulsing intensity
-                float pulse = sin(emergencyPhase + i * 1.57f) * 0.3f + 0.7f;
-                emergencyLights[i].setColor(0.8f * pulse, 0.1f * pulse, 0.1f * pulse);
+                // Steady white light for facility (no pulsing red)
+                emergencyLights[i].setColor(0.9f, 0.85f, 0.8f);
             }
         }
     }
     
     void apply() {
         glEnable(GL_LIGHTING);
+        
+        // In first person mode, reduce ambient lighting significantly
+        // to make weapon light the primary light source
+        if (isFirstPerson) {
+            float darkAmbient[] = {0.08f, 0.08f, 0.1f, 1.0f};  // Very dark
+            glLightModelfv(GL_LIGHT_MODEL_AMBIENT, darkAmbient);
+            
+            // Disable ceiling lights in first person
+            for (int i = 0; i < 4; i++) {
+                emergencyLights[i].enabled = false;
+            }
+        }
         
         flashlight.apply();
         

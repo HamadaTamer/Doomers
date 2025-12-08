@@ -6,6 +6,7 @@
 #define ENVIRONMENT_MODELS_H
 
 #include "ModelUtils.h"
+#include "../TextureManager.h"
 
 namespace EnvironmentModels {
 
@@ -184,54 +185,68 @@ namespace EnvironmentModels {
         float pulse = sin(getTime() * 3) * 0.1f + 0.9f;
         
         glPushMatrix();
-        glTranslatef(0, 0.25f + bob, 0);
+        glTranslatef(0, 0.35f + bob, 0);
         glRotatef(spin, 0, 1, 0);
         
-        // Main box
-        setColor(0.28f, 0.38f, 0.25f);
-        drawBox(0.45f, 0.28f, 0.35f);
+        // Enable texturing for magazine
+        glEnable(GL_TEXTURE_2D);
+        TextureManager::bind(TEX_AMMO);  // AK-47 magazine texture
+        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+        glColor3f(1.0f, 1.0f, 1.0f);
         
-        // Metal reinforcement strips
-        setColorMetallic(0.4f, 0.4f, 0.35f);
-        for (int i = -1; i <= 1; i += 2) {
-            glPushMatrix();
-            glTranslatef(i * 0.18f, 0, 0);
-            drawBox(0.04f, 0.3f, 0.37f);
-            glPopMatrix();
-        }
-        
-        // Bullet strip indicator
-        setColor(0.9f * pulse, 0.75f * pulse, 0.15f);
-        setEmissive(0.3f * pulse, 0.25f * pulse, 0.05f);
+        // Draw textured magazine body - curved shape
+        // Main magazine body
         glPushMatrix();
-        glTranslatef(0, 0, 0.18f);
-        drawBox(0.35f, 0.06f, 0.015f);
+        glRotatef(-10, 1, 0, 0);  // Slight curve angle
+        
+        // Draw magazine as textured box with proper UVs
+        float magW = 0.12f, magH = 0.45f, magD = 0.08f;
+        glBegin(GL_QUADS);
+        // Front face
+        glNormal3f(0, 0, 1);
+        glTexCoord2f(0, 0); glVertex3f(-magW, -magH, magD);
+        glTexCoord2f(1, 0); glVertex3f(magW, -magH, magD);
+        glTexCoord2f(1, 1); glVertex3f(magW, magH, magD);
+        glTexCoord2f(0, 1); glVertex3f(-magW, magH, magD);
+        // Back face
+        glNormal3f(0, 0, -1);
+        glTexCoord2f(0, 0); glVertex3f(magW, -magH, -magD);
+        glTexCoord2f(1, 0); glVertex3f(-magW, -magH, -magD);
+        glTexCoord2f(1, 1); glVertex3f(-magW, magH, -magD);
+        glTexCoord2f(0, 1); glVertex3f(magW, magH, -magD);
+        // Left face
+        glNormal3f(-1, 0, 0);
+        glTexCoord2f(0, 0); glVertex3f(-magW, -magH, -magD);
+        glTexCoord2f(1, 0); glVertex3f(-magW, -magH, magD);
+        glTexCoord2f(1, 1); glVertex3f(-magW, magH, magD);
+        glTexCoord2f(0, 1); glVertex3f(-magW, magH, -magD);
+        // Right face
+        glNormal3f(1, 0, 0);
+        glTexCoord2f(0, 0); glVertex3f(magW, -magH, magD);
+        glTexCoord2f(1, 0); glVertex3f(magW, -magH, -magD);
+        glTexCoord2f(1, 1); glVertex3f(magW, magH, -magD);
+        glTexCoord2f(0, 1); glVertex3f(magW, magH, magD);
+        // Top face
+        glNormal3f(0, 1, 0);
+        glTexCoord2f(0, 0); glVertex3f(-magW, magH, magD);
+        glTexCoord2f(1, 0); glVertex3f(magW, magH, magD);
+        glTexCoord2f(1, 1); glVertex3f(magW, magH, -magD);
+        glTexCoord2f(0, 1); glVertex3f(-magW, magH, -magD);
+        // Bottom face
+        glNormal3f(0, -1, 0);
+        glTexCoord2f(0, 0); glVertex3f(-magW, -magH, -magD);
+        glTexCoord2f(1, 0); glVertex3f(magW, -magH, -magD);
+        glTexCoord2f(1, 1); glVertex3f(magW, -magH, magD);
+        glTexCoord2f(0, 1); glVertex3f(-magW, -magH, magD);
+        glEnd();
         glPopMatrix();
         
-        // Individual bullets visible
-        for (int i = -2; i <= 2; i++) {
-            glPushMatrix();
-            glTranslatef(i * 0.06f, 0.145f, 0);
-            setColorMetallic(0.7f, 0.55f, 0.2f);
-            drawCylinder(0.02f, 0.06f, 8);
-            setColorMetallic(0.6f, 0.45f, 0.15f);
-            glTranslatef(0, 0.06f, 0);
-            drawCone(0.02f, 0.03f, 8);
-            glPopMatrix();
-        }
-        clearEmissive();
-        
-        // Handle
-        setColorMetallic(0.35f, 0.35f, 0.3f);
-        glPushMatrix();
-        glTranslatef(0, 0.16f, 0);
-        drawBox(0.2f, 0.025f, 0.035f);
-        glPopMatrix();
+        TextureManager::unbind();
         
         // Glow effect
         enableGlow();
-        glColor4f(1.0f, 0.8f, 0.2f, 0.2f * pulse);
-        drawSphere(0.4f, 12);
+        glColor4f(1.0f, 0.8f, 0.2f, 0.25f * pulse);
+        drawSphere(0.35f, 12);
         disableGlow();
         
         glPopMatrix();
@@ -611,26 +626,34 @@ namespace EnvironmentModels {
     inline void drawPillar(float height) {
         glPushMatrix();
         
-        // Base
-        setColorMetallic(0.35f, 0.35f, 0.4f);
+        // Base - use texture if available
+        if (TextureManager::isLoaded(TEX_PILLAR)) {
+            TextureManager::bind(TEX_PILLAR);
+            glEnable(GL_TEXTURE_2D);
+            glColor3f(0.8f, 0.8f, 0.85f); // Light gray tint
+        } else {
+            setColorMetallic(0.35f, 0.35f, 0.4f);
+        }
         glPushMatrix();
         glTranslatef(0, 0.2f, 0);
-        drawBox(1.2f, 0.4f, 1.2f);
+        TextureManager::drawTexturedBox(TEX_PILLAR, 0, 0, 0, 1.2f, 0.4f, 1.2f, 0.5f);
         glPopMatrix();
         
-        // Main column
-        setColorMetallic(0.3f, 0.32f, 0.38f);
+        // Main column - textured
         glPushMatrix();
         glTranslatef(0, height/2, 0);
-        drawBox(0.8f, height - 0.8f, 0.8f);
+        TextureManager::drawTexturedBox(TEX_PILLAR, 0, 0, 0, 0.8f, height - 0.8f, 0.8f, 2.0f);
         glPopMatrix();
         
-        // Capital
-        setColorMetallic(0.35f, 0.35f, 0.4f);
+        // Capital - textured
         glPushMatrix();
         glTranslatef(0, height - 0.2f, 0);
-        drawBox(1.2f, 0.4f, 1.2f);
+        TextureManager::drawTexturedBox(TEX_PILLAR, 0, 0, 0, 1.2f, 0.4f, 1.2f, 0.5f);
         glPopMatrix();
+        
+        if (TextureManager::isLoaded(TEX_PILLAR)) {
+            TextureManager::unbind();
+        }
         
         // Light strips
         float pulse = sin(getTime() * 2) * 0.15f + 0.85f;

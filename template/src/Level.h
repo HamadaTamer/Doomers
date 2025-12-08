@@ -11,6 +11,8 @@
 #include "Collectible.h"
 #include "Collision.h"
 #include "LowPolyModels.h"
+#include "TextureManager.h"
+#include "ModelLoader.h"
 #include <glut.h>
 #include <stdlib.h>
 #include <math.h>
@@ -64,7 +66,21 @@ struct Door {
         glPushMatrix();
         glTranslatef(position.x, position.y, position.z);
         glRotatef(rotation, 0, 1, 0);
+        
+        // Apply texture to door if available
+        if (TextureManager::isLoaded(TEX_WALL_PANEL)) {
+            glEnable(GL_TEXTURE_2D);
+            TextureManager::bind(TEX_WALL_PANEL);
+            glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+        }
+        
         LowPolyModels::drawDoor(isOpen, openAmount);
+        
+        if (TextureManager::isLoaded(TEX_WALL_PANEL)) {
+            TextureManager::unbind();
+            glDisable(GL_TEXTURE_2D);
+        }
+        
         glPopMatrix();
     }
 };
@@ -142,11 +158,18 @@ struct Crate {
         if (isMysteryBox) {
             drawMysteryBox();
         } else {
-            glTranslatef(0, size * 0.5f, 0);
-            if (isSciFi) {
-                LowPolyModels::drawSciFiCrate(size);
+            // Try to use 3D model first for regular crates
+            if (ModelLoader::isLoaded(MODEL_CRATE)) {
+                glTranslatef(0, size * 0.5f, 0);
+                ModelLoader::draw(MODEL_CRATE, size * 1.2f);
             } else {
-                LowPolyModels::drawCrate(size);
+                // Fallback to procedural with texture
+                glTranslatef(0, size * 0.5f, 0);
+                if (isSciFi) {
+                    TextureManager::drawTexturedBox(TEX_CRATE_SCIFI, 0, 0, 0, size, size, size, 1.0f);
+                } else {
+                    TextureManager::drawTexturedBox(TEX_CRATE, 0, 0, 0, size, size, size, 1.0f);
+                }
             }
         }
         glPopMatrix();
@@ -166,16 +189,19 @@ struct Crate {
             // Very slow rotation
             glRotatef(glowPhase * 8.0f, 0, 1, 0);
             
-            // Main crate with pulsing glow color
-            LowPolyModels::setColor(0.15f + 0.15f * pulse, 0.25f + 0.25f * pulse, 0.5f + 0.3f * pulse);
-            LowPolyModels::drawSciFiCrate(size);
+            // Main crate with pulsing glow color - use texture if available
+            if (TextureManager::isLoaded(TEX_CRATE_SCIFI)) {
+                glColor3f(0.5f + 0.3f * pulse, 0.6f + 0.3f * pulse, 0.9f + 0.1f * pulse);
+                TextureManager::drawTexturedBox(TEX_CRATE_SCIFI, 0, 0, 0, size, size, size, 0.5f);
+            } else {
+                LowPolyModels::setColor(0.15f + 0.15f * pulse, 0.25f + 0.25f * pulse, 0.5f + 0.3f * pulse);
+                LowPolyModels::drawSciFiCrate(size);
+            }
             
             // Glowing edges effect
             glDisable(GL_LIGHTING);
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-            
-            // Energy lines on edges (no spheres!)
             glLineWidth(2.0f);
             glBegin(GL_LINES);
             float edgeGlow = 0.6f + 0.4f * fastPulse;
@@ -389,47 +415,84 @@ struct ParkourObstacle {
         glTranslatef(position.x, position.y, position.z);
         glRotatef(rotation, 0, 1, 0);
         
-        // Base platform (so it's more visible)
-        LowPolyModels::setColorMetallic(0.25f, 0.25f, 0.28f);
-        glPushMatrix();
-        glTranslatef(0, 0.05f, 0);
-        LowPolyModels::drawBox(width + 0.4f, 0.1f, depth + 0.8f);
-        glPopMatrix();
-        
-        // Main barrier body - THICKER for visibility
-        LowPolyModels::setColorMetallic(0.4f, 0.42f, 0.45f);
-        glPushMatrix();
-        glTranslatef(0, height * 0.5f, 0);
-        LowPolyModels::drawBox(width, height, depth + 0.3f);
-        glPopMatrix();
-        
-        // Top rail - BIGGER and BRIGHTER
-        LowPolyModels::setColorMetallic(0.6f, 0.62f, 0.65f);
-        glPushMatrix();
-        glTranslatef(0, height + 0.08f, 0);
-        LowPolyModels::drawBox(width + 0.2f, 0.16f, depth + 0.4f);
-        glPopMatrix();
-        
-        // Highlight strip on top rail
-        LowPolyModels::setEmissive(0.1f, 0.1f, 0.15f);
-        glPushMatrix();
-        glTranslatef(0, height + 0.17f, 0);
-        LowPolyModels::drawBox(width, 0.02f, depth + 0.2f);
-        glPopMatrix();
-        LowPolyModels::clearEmissive();
-        
-        // Support posts - LARGER
-        LowPolyModels::setColorMetallic(0.35f, 0.35f, 0.38f);
-        float postX[] = {-width * 0.4f, width * 0.4f};
-        for (int i = 0; i < 2; i++) {
+        // Try textured rendering first
+        if (TextureManager::isLoaded(TEX_PARKOUR) || TextureManager::isLoaded(TEX_PLATFORM)) {
+            TextureID texID = TextureManager::isLoaded(TEX_PARKOUR) ? TEX_PARKOUR : TEX_PLATFORM;
+            
+            // Base platform textured
             glPushMatrix();
-            glTranslatef(postX[i], height * 0.5f, depth * 0.4f);
-            LowPolyModels::drawBox(0.2f, height, 0.2f);
+            glTranslatef(0, 0.05f, 0);
+            TextureManager::drawTexturedBox(texID, 0, 0, 0, width + 0.4f, 0.1f, depth + 0.8f, 0.5f);
             glPopMatrix();
+            
+            // Main barrier body textured
             glPushMatrix();
-            glTranslatef(postX[i], height * 0.5f, -depth * 0.4f);
-            LowPolyModels::drawBox(0.2f, height, 0.2f);
+            glTranslatef(0, height * 0.5f, 0);
+            TextureManager::drawTexturedBox(texID, 0, 0, 0, width, height, depth + 0.3f, 0.3f);
             glPopMatrix();
+            
+            // Top rail textured
+            glPushMatrix();
+            glTranslatef(0, height + 0.08f, 0);
+            TextureManager::drawTexturedBox(TEX_WALL_ORANGE_WARNING, 0, 0, 0, width + 0.2f, 0.16f, depth + 0.4f, 0.5f);
+            glPopMatrix();
+            
+            // Support posts textured
+            float postX[] = {-width * 0.4f, width * 0.4f};
+            for (int i = 0; i < 2; i++) {
+                glPushMatrix();
+                glTranslatef(postX[i], height * 0.5f, depth * 0.4f);
+                TextureManager::drawTexturedBox(texID, 0, 0, 0, 0.2f, height, 0.2f, 0.5f);
+                glPopMatrix();
+                glPushMatrix();
+                glTranslatef(postX[i], height * 0.5f, -depth * 0.4f);
+                TextureManager::drawTexturedBox(texID, 0, 0, 0, 0.2f, height, 0.2f, 0.5f);
+                glPopMatrix();
+            }
+        } else {
+            // Fallback to procedural rendering
+            // Base platform (so it's more visible)
+            LowPolyModels::setColorMetallic(0.25f, 0.25f, 0.28f);
+            glPushMatrix();
+            glTranslatef(0, 0.05f, 0);
+            LowPolyModels::drawBox(width + 0.4f, 0.1f, depth + 0.8f);
+            glPopMatrix();
+            
+            // Main barrier body - THICKER for visibility
+            LowPolyModels::setColorMetallic(0.4f, 0.42f, 0.45f);
+            glPushMatrix();
+            glTranslatef(0, height * 0.5f, 0);
+            LowPolyModels::drawBox(width, height, depth + 0.3f);
+            glPopMatrix();
+            
+            // Top rail - BIGGER and BRIGHTER
+            LowPolyModels::setColorMetallic(0.6f, 0.62f, 0.65f);
+            glPushMatrix();
+            glTranslatef(0, height + 0.08f, 0);
+            LowPolyModels::drawBox(width + 0.2f, 0.16f, depth + 0.4f);
+            glPopMatrix();
+            
+            // Highlight strip on top rail
+            LowPolyModels::setEmissive(0.1f, 0.1f, 0.15f);
+            glPushMatrix();
+            glTranslatef(0, height + 0.17f, 0);
+            LowPolyModels::drawBox(width, 0.02f, depth + 0.2f);
+            glPopMatrix();
+            LowPolyModels::clearEmissive();
+            
+            // Support posts - LARGER
+            LowPolyModels::setColorMetallic(0.35f, 0.35f, 0.38f);
+            float postX[] = {-width * 0.4f, width * 0.4f};
+            for (int i = 0; i < 2; i++) {
+                glPushMatrix();
+                glTranslatef(postX[i], height * 0.5f, depth * 0.4f);
+                LowPolyModels::drawBox(0.2f, height, 0.2f);
+                glPopMatrix();
+                glPushMatrix();
+                glTranslatef(postX[i], height * 0.5f, -depth * 0.4f);
+                LowPolyModels::drawBox(0.2f, height, 0.2f);
+                glPopMatrix();
+            }
         }
         
         // Caution stripes - MORE VISIBLE
@@ -501,39 +564,45 @@ struct ExitDoor {
         glTranslatef(position.x, position.y, position.z);
         glRotatef(rotation, 0, 1, 0);
         
-        // Door frame
-        LowPolyModels::setColorMetallic(0.3f, 0.32f, 0.35f);
-        // Left frame
-        glPushMatrix();
-        glTranslatef(-1.3f, 1.5f, 0);
-        LowPolyModels::drawBox(0.2f, 3.0f, 0.3f);
-        glPopMatrix();
-        // Right frame
-        glPushMatrix();
-        glTranslatef(1.3f, 1.5f, 0);
-        LowPolyModels::drawBox(0.2f, 3.0f, 0.3f);
-        glPopMatrix();
-        // Top frame
-        glPushMatrix();
-        glTranslatef(0, 3.1f, 0);
-        LowPolyModels::drawBox(2.8f, 0.2f, 0.3f);
-        glPopMatrix();
+        // Door frame with texture
+        if (TextureManager::isLoaded(TEX_WALL_PANEL)) {
+            TextureManager::drawTexturedBox(TEX_WALL_PANEL, -1.3f, 1.5f, 0, 0.2f, 3.0f, 0.3f, 0.5f);
+            TextureManager::drawTexturedBox(TEX_WALL_PANEL, 1.3f, 1.5f, 0, 0.2f, 3.0f, 0.3f, 0.5f);
+            TextureManager::drawTexturedBox(TEX_WALL_PANEL, 0, 3.1f, 0, 2.8f, 0.2f, 0.3f, 0.5f);
+        } else {
+            LowPolyModels::setColorMetallic(0.3f, 0.32f, 0.35f);
+            glPushMatrix();
+            glTranslatef(-1.3f, 1.5f, 0);
+            LowPolyModels::drawBox(0.2f, 3.0f, 0.3f);
+            glPopMatrix();
+            glPushMatrix();
+            glTranslatef(1.3f, 1.5f, 0);
+            LowPolyModels::drawBox(0.2f, 3.0f, 0.3f);
+            glPopMatrix();
+            glPushMatrix();
+            glTranslatef(0, 3.1f, 0);
+            LowPolyModels::drawBox(2.8f, 0.2f, 0.3f);
+            glPopMatrix();
+        }
         
         // Door panels (slide open)
         float slideOffset = openAmount * 1.1f;
         
-        // Left door panel
-        LowPolyModels::setColorMetallic(0.25f, 0.28f, 0.32f);
-        glPushMatrix();
-        glTranslatef(-0.55f - slideOffset, 1.5f, 0);
-        LowPolyModels::drawBox(1.0f, 2.9f, 0.15f);
-        glPopMatrix();
-        
-        // Right door panel
-        glPushMatrix();
-        glTranslatef(0.55f + slideOffset, 1.5f, 0);
-        LowPolyModels::drawBox(1.0f, 2.9f, 0.15f);
-        glPopMatrix();
+        // Left door panel with texture
+        if (TextureManager::isLoaded(TEX_CRATE_SCIFI)) {
+            TextureManager::drawTexturedBox(TEX_CRATE_SCIFI, -0.55f - slideOffset, 1.5f, 0, 1.0f, 2.9f, 0.15f, 0.3f);
+            TextureManager::drawTexturedBox(TEX_CRATE_SCIFI, 0.55f + slideOffset, 1.5f, 0, 1.0f, 2.9f, 0.15f, 0.3f);
+        } else {
+            LowPolyModels::setColorMetallic(0.25f, 0.28f, 0.32f);
+            glPushMatrix();
+            glTranslatef(-0.55f - slideOffset, 1.5f, 0);
+            LowPolyModels::drawBox(1.0f, 2.9f, 0.15f);
+            glPopMatrix();
+            glPushMatrix();
+            glTranslatef(0.55f + slideOffset, 1.5f, 0);
+            LowPolyModels::drawBox(1.0f, 2.9f, 0.15f);
+            glPopMatrix();
+        }
         
         // Light above door
         if (isActive) {
@@ -1467,8 +1536,59 @@ public:
         
         float halfSize = floorSize / 2.0f;
         
-        // Use the proper tiled floor from LowPolyModels
-        LowPolyModels::drawLevelFloor(floorSize, floorSize);
+        // =====================================================
+        // CHECKERBOARD FLOOR - Alternating tiles for visual interest
+        // =====================================================
+        
+        // Temporarily disable face culling for floor (draw both sides)
+        glDisable(GL_CULL_FACE);
+        
+        // Set material properties for lighting
+        GLfloat floorDiffuse[] = {1.0f, 1.0f, 1.0f, 1.0f};
+        GLfloat floorAmbient[] = {0.8f, 0.8f, 0.8f, 1.0f};
+        glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, floorDiffuse);
+        glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, floorAmbient);
+        
+        // Draw checkerboard pattern with two different tile textures
+        float tileSize = 4.0f;  // Each tile is 4x4 units
+        int numTiles = (int)(floorSize / tileSize);
+        
+        glEnable(GL_TEXTURE_2D);
+        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+        
+        for (int i = 0; i < numTiles; i++) {
+            for (int j = 0; j < numTiles; j++) {
+                // Checkerboard pattern - alternate textures
+                bool isDark = ((i + j) % 2 == 0);
+                
+                if (isDark) {
+                    TextureManager::bind(TEX_FLOOR_TILE);  // Tile texture
+                    glColor3f(0.9f, 0.9f, 0.95f);  // Slightly tinted
+                } else {
+                    TextureManager::bind(TEX_FLOOR_LAB);   // Lab floor texture
+                    glColor3f(1.0f, 1.0f, 1.0f);  // Full brightness
+                }
+                
+                float x0 = -halfSize + i * tileSize;
+                float z0 = -halfSize + j * tileSize;
+                float x1 = x0 + tileSize;
+                float z1 = z0 + tileSize;
+                
+                glBegin(GL_QUADS);
+                glNormal3f(0, 1, 0);
+                glTexCoord2f(0, 0); glVertex3f(x0, 0.01f, z0);
+                glTexCoord2f(1, 0); glVertex3f(x1, 0.01f, z0);
+                glTexCoord2f(1, 1); glVertex3f(x1, 0.01f, z1);
+                glTexCoord2f(0, 1); glVertex3f(x0, 0.01f, z1);
+                glEnd();
+            }
+        }
+        
+        TextureManager::unbind();
+        glColor3f(1.0f, 1.0f, 1.0f);  // Reset color
+        
+        // Re-enable face culling
+        glEnable(GL_CULL_FACE);
         
         // Draw sector markings on floor
         glDisable(GL_LIGHTING);
@@ -1532,47 +1652,141 @@ public:
         glPopMatrix();
     }
     
+    // Helper function to draw a textured wall segment with proper 3D thickness
+    void drawTexturedWallSegment(float x, float z, float rotation, float width, float height, TextureID texID = TEX_WALL_PANEL) {
+        glPushMatrix();
+        glTranslatef(x, height/2, z);
+        glRotatef(rotation, 0, 1, 0);
+        
+        // Enable texturing with proper material for lighting
+        glEnable(GL_TEXTURE_2D);
+        TextureManager::bind(texID);
+        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+        glColor3f(1.0f, 1.0f, 1.0f);
+        // Bright material so texture shows well
+        GLfloat wallDiffuse[] = {1.0f, 1.0f, 1.0f, 1.0f};
+        GLfloat wallAmbient[] = {0.7f, 0.7f, 0.7f, 1.0f};
+        glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, wallDiffuse);
+        glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, wallAmbient);
+        
+        float texU = width / 4.0f;  // Tile every 4 units
+        float texV = height / 4.0f;
+        float thickness = 0.5f;  // Wall thickness
+        float halfThick = thickness / 2.0f;
+        float texT = thickness / 4.0f;  // Texture scale for thickness
+        
+        glBegin(GL_QUADS);
+        
+        // Front face (+Z)
+        glNormal3f(0, 0, 1);
+        glTexCoord2f(0, 0); glVertex3f(-width/2, -height/2, halfThick);
+        glTexCoord2f(texU, 0); glVertex3f(width/2, -height/2, halfThick);
+        glTexCoord2f(texU, texV); glVertex3f(width/2, height/2, halfThick);
+        glTexCoord2f(0, texV); glVertex3f(-width/2, height/2, halfThick);
+        
+        // Back face (-Z)
+        glNormal3f(0, 0, -1);
+        glTexCoord2f(0, 0); glVertex3f(width/2, -height/2, -halfThick);
+        glTexCoord2f(texU, 0); glVertex3f(-width/2, -height/2, -halfThick);
+        glTexCoord2f(texU, texV); glVertex3f(-width/2, height/2, -halfThick);
+        glTexCoord2f(0, texV); glVertex3f(width/2, height/2, -halfThick);
+        
+        // Left face (-X)
+        glNormal3f(-1, 0, 0);
+        glTexCoord2f(0, 0); glVertex3f(-width/2, -height/2, -halfThick);
+        glTexCoord2f(texT, 0); glVertex3f(-width/2, -height/2, halfThick);
+        glTexCoord2f(texT, texV); glVertex3f(-width/2, height/2, halfThick);
+        glTexCoord2f(0, texV); glVertex3f(-width/2, height/2, -halfThick);
+        
+        // Right face (+X)
+        glNormal3f(1, 0, 0);
+        glTexCoord2f(0, 0); glVertex3f(width/2, -height/2, halfThick);
+        glTexCoord2f(texT, 0); glVertex3f(width/2, -height/2, -halfThick);
+        glTexCoord2f(texT, texV); glVertex3f(width/2, height/2, -halfThick);
+        glTexCoord2f(0, texV); glVertex3f(width/2, height/2, halfThick);
+        
+        // Top face (+Y)
+        glNormal3f(0, 1, 0);
+        glTexCoord2f(0, 0); glVertex3f(-width/2, height/2, halfThick);
+        glTexCoord2f(texU, 0); glVertex3f(width/2, height/2, halfThick);
+        glTexCoord2f(texU, texT); glVertex3f(width/2, height/2, -halfThick);
+        glTexCoord2f(0, texT); glVertex3f(-width/2, height/2, -halfThick);
+        
+        // Bottom face (-Y) - optional but good for completeness
+        glNormal3f(0, -1, 0);
+        glTexCoord2f(0, 0); glVertex3f(-width/2, -height/2, -halfThick);
+        glTexCoord2f(texU, 0); glVertex3f(width/2, -height/2, -halfThick);
+        glTexCoord2f(texU, texT); glVertex3f(width/2, -height/2, halfThick);
+        glTexCoord2f(0, texT); glVertex3f(-width/2, -height/2, halfThick);
+        
+        glEnd();
+        
+        TextureManager::unbind();
+        glDisable(GL_TEXTURE_2D);
+        glPopMatrix();
+    }
+    
     void drawFacilityWalls() {
         float halfSize = floorSize / 2.0f;
         
-        // Use the proper detailed walls from LowPolyModels
-        LowPolyModels::drawArenaWalls(floorSize, floorSize, wallHeight);
+        // =====================================================
+        // TEXTURED OUTER WALLS
+        // =====================================================
+        // North wall
+        drawTexturedWallSegment(0, -halfSize, 0, floorSize, wallHeight, TEX_WALL_GREY);
+        // South wall
+        drawTexturedWallSegment(0, halfSize, 180, floorSize, wallHeight, TEX_WALL_GREY);
+        // East wall
+        drawTexturedWallSegment(halfSize, 0, 90, floorSize, wallHeight, TEX_WALL_GREY);
+        // West wall
+        drawTexturedWallSegment(-halfSize, 0, -90, floorSize, wallHeight, TEX_WALL_GREY);
         
-        // Draw ceiling with lights
-        LowPolyModels::drawCeiling(floorSize, floorSize, wallHeight);
+        // =====================================================
+        // TEXTURED CEILING
+        // =====================================================
+        glEnable(GL_TEXTURE_2D);
+        TextureManager::bind(TEX_FLOOR_TILE);
+        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+        glColor3f(1.0f, 1.0f, 1.0f);
+        // Bright material for ceiling
+        GLfloat ceilDiffuse[] = {1.0f, 1.0f, 1.0f, 1.0f};
+        GLfloat ceilAmbient[] = {0.8f, 0.8f, 0.8f, 1.0f};
+        glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, ceilDiffuse);
+        glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ceilAmbient);
         
+        float texRepeat = floorSize / 6.0f;
+        glBegin(GL_QUADS);
+        glNormal3f(0, -1, 0);
+        glTexCoord2f(0, 0); glVertex3f(-halfSize, wallHeight, -halfSize);
+        glTexCoord2f(texRepeat, 0); glVertex3f(halfSize, wallHeight, -halfSize);
+        glTexCoord2f(texRepeat, texRepeat); glVertex3f(halfSize, wallHeight, halfSize);
+        glTexCoord2f(0, texRepeat); glVertex3f(-halfSize, wallHeight, halfSize);
+        glEnd();
+        TextureManager::unbind();
+        glDisable(GL_TEXTURE_2D);
+
         // =====================================================
         // INTERIOR WALLS - Create actual lab rooms
         // =====================================================
         
         // --- SECTOR A: Security Checkpoint (SW) ---
-        // East wall of security
-        LowPolyModels::drawWallSegment(-5, -20, 90, 20, wallHeight);
-        // North wall of security (partial - with door gap)
-        LowPolyModels::drawWallSegment(-20, -5, 0, 15, wallHeight);
+        drawTexturedWallSegment(-5, -20, 90, 20, wallHeight, TEX_WALL_BLUE);
+        drawTexturedWallSegment(-20, -5, 0, 15, wallHeight, TEX_WALL_BLUE);
         
         // --- SECTOR B: Research Labs (NW) ---
-        // South wall of research
-        LowPolyModels::drawWallSegment(-25, 5, 0, 18, wallHeight);
-        // East wall of research (partial)
-        LowPolyModels::drawWallSegment(-5, 20, 90, 20, wallHeight);
-        // Internal lab divider
-        LowPolyModels::drawWallSegment(-20, 18, 0, 12, wallHeight * 0.6f);
+        drawTexturedWallSegment(-25, 5, 0, 18, wallHeight, TEX_WALL_PANEL);
+        drawTexturedWallSegment(-5, 20, 90, 20, wallHeight, TEX_WALL_PANEL);
+        drawTexturedWallSegment(-20, 18, 0, 12, wallHeight * 0.6f, TEX_WALL_PANEL);
         
         // --- SECTOR C: Containment (SE) ---
-        // West wall of containment
-        LowPolyModels::drawWallSegment(5, -20, 90, 20, wallHeight);
-        // North wall of containment (partial)
-        LowPolyModels::drawWallSegment(20, -5, 0, 15, wallHeight);
-        // Containment cells internal walls
-        LowPolyModels::drawWallSegment(15, -20, 0, 8, wallHeight * 0.7f);
-        LowPolyModels::drawWallSegment(25, -20, 0, 8, wallHeight * 0.7f);
+        drawTexturedWallSegment(5, -20, 90, 20, wallHeight, TEX_WALL_ORANGE_WARNING);
+        drawTexturedWallSegment(20, -5, 0, 15, wallHeight, TEX_WALL_ORANGE_WARNING);
+        drawTexturedWallSegment(15, -20, 0, 8, wallHeight * 0.7f, TEX_WALL_ORANGE_WARNING);
+        drawTexturedWallSegment(25, -20, 0, 8, wallHeight * 0.7f, TEX_WALL_ORANGE_WARNING);
         
         // --- SECTOR D: Reactor Core (NE) ---
-        // South wall of reactor (with gap for door)
-        LowPolyModels::drawWallSegment(25, 5, 0, 12, wallHeight);
-        // West wall of reactor (partial)
-        LowPolyModels::drawWallSegment(5, 20, 90, 16, wallHeight);
+        drawTexturedWallSegment(25, 5, 0, 12, wallHeight, TEX_WALL_GREY);
+        drawTexturedWallSegment(5, 20, 90, 16, wallHeight, TEX_WALL_GREY);
         
         // =====================================================
         // LAB EQUIPMENT AND DECORATIONS
@@ -1749,23 +1963,43 @@ public:
 
     // Lab equipment drawing functions
     void drawSecurityDesk() {
-        // Desk surface
-        LowPolyModels::setColorMetallic(0.25f, 0.28f, 0.32f);
-        glPushMatrix();
-        glTranslatef(0, 1.0f, 0);
-        LowPolyModels::drawBox(3.0f, 0.15f, 1.5f);
-        glPopMatrix();
+        // Desk surface - use floor metal texture for desks
+        if (TextureManager::isLoaded(TEX_FLOOR_METAL)) {
+            glColor3f(0.7f, 0.7f, 0.75f);
+            glPushMatrix();
+            glTranslatef(0, 1.0f, 0);
+            TextureManager::drawTexturedBox(TEX_FLOOR_METAL, 0, 0, 0, 3.0f, 0.15f, 1.5f, 1.0f);
+            glPopMatrix();
+        } else {
+            LowPolyModels::setColorMetallic(0.25f, 0.28f, 0.32f);
+            glPushMatrix();
+            glTranslatef(0, 1.0f, 0);
+            LowPolyModels::drawBox(3.0f, 0.15f, 1.5f);
+            glPopMatrix();
+        }
         
-        // Desk supports
-        LowPolyModels::setColorMetallic(0.2f, 0.22f, 0.26f);
-        glPushMatrix();
-        glTranslatef(-1.2f, 0.5f, 0);
-        LowPolyModels::drawBox(0.15f, 1.0f, 1.3f);
-        glPopMatrix();
-        glPushMatrix();
-        glTranslatef(1.2f, 0.5f, 0);
-        LowPolyModels::drawBox(0.15f, 1.0f, 1.3f);
-        glPopMatrix();
+        // Desk supports - wall panel texture
+        if (TextureManager::isLoaded(TEX_WALL_PANEL)) {
+            glColor3f(0.6f, 0.6f, 0.65f);
+            glPushMatrix();
+            glTranslatef(-1.2f, 0.5f, 0);
+            TextureManager::drawTexturedBox(TEX_WALL_PANEL, 0, 0, 0, 0.15f, 1.0f, 1.3f, 0.5f);
+            glPopMatrix();
+            glPushMatrix();
+            glTranslatef(1.2f, 0.5f, 0);
+            TextureManager::drawTexturedBox(TEX_WALL_PANEL, 0, 0, 0, 0.15f, 1.0f, 1.3f, 0.5f);
+            glPopMatrix();
+        } else {
+            LowPolyModels::setColorMetallic(0.2f, 0.22f, 0.26f);
+            glPushMatrix();
+            glTranslatef(-1.2f, 0.5f, 0);
+            LowPolyModels::drawBox(0.15f, 1.0f, 1.3f);
+            glPopMatrix();
+            glPushMatrix();
+            glTranslatef(1.2f, 0.5f, 0);
+            LowPolyModels::drawBox(0.15f, 1.0f, 1.3f);
+            glPopMatrix();
+        }
         
         // Monitor on desk
         glPushMatrix();
@@ -1809,23 +2043,45 @@ public:
     }
     
     void drawLabBench() {
-        // Bench top
-        LowPolyModels::setColorMetallic(0.5f, 0.52f, 0.55f);
-        glPushMatrix();
-        glTranslatef(0, 1.0f, 0);
-        LowPolyModels::drawBox(2.5f, 0.1f, 1.2f);
-        glPopMatrix();
+        // Bench top - use metal floor texture
+        if (TextureManager::isLoaded(TEX_FLOOR_METAL)) {
+            glColor3f(0.85f, 0.87f, 0.9f);
+            glPushMatrix();
+            glTranslatef(0, 1.0f, 0);
+            TextureManager::drawTexturedBox(TEX_FLOOR_METAL, 0, 0, 0, 2.5f, 0.1f, 1.2f, 1.0f);
+            glPopMatrix();
+        } else {
+            LowPolyModels::setColorMetallic(0.5f, 0.52f, 0.55f);
+            glPushMatrix();
+            glTranslatef(0, 1.0f, 0);
+            LowPolyModels::drawBox(2.5f, 0.1f, 1.2f);
+            glPopMatrix();
+        }
         
-        // Legs
-        LowPolyModels::setColorMetallic(0.3f, 0.32f, 0.35f);
-        float legX[] = {-1.0f, 1.0f};
-        float legZ[] = {-0.4f, 0.4f};
-        for (int x = 0; x < 2; x++) {
-            for (int z = 0; z < 2; z++) {
-                glPushMatrix();
-                glTranslatef(legX[x], 0.5f, legZ[z]);
-                LowPolyModels::drawBox(0.1f, 1.0f, 0.1f);
-                glPopMatrix();
+        // Legs - use wall panel texture
+        if (TextureManager::isLoaded(TEX_WALL_PANEL)) {
+            glColor3f(0.6f, 0.62f, 0.65f);
+            float legX[] = {-1.0f, 1.0f};
+            float legZ[] = {-0.4f, 0.4f};
+            for (int x = 0; x < 2; x++) {
+                for (int z = 0; z < 2; z++) {
+                    glPushMatrix();
+                    glTranslatef(legX[x], 0.5f, legZ[z]);
+                    TextureManager::drawTexturedBox(TEX_WALL_PANEL, 0, 0, 0, 0.1f, 1.0f, 0.1f, 0.5f);
+                    glPopMatrix();
+                }
+            }
+        } else {
+            LowPolyModels::setColorMetallic(0.3f, 0.32f, 0.35f);
+            float legX[] = {-1.0f, 1.0f};
+            float legZ[] = {-0.4f, 0.4f};
+            for (int x = 0; x < 2; x++) {
+                for (int z = 0; z < 2; z++) {
+                    glPushMatrix();
+                    glTranslatef(legX[x], 0.5f, legZ[z]);
+                    LowPolyModels::drawBox(0.1f, 1.0f, 0.1f);
+                    glPopMatrix();
+                }
             }
         }
         
@@ -1911,12 +2167,20 @@ public:
     }
     
     void drawComputerTerminal() {
-        // Terminal housing
-        LowPolyModels::setColorMetallic(0.22f, 0.24f, 0.28f);
-        glPushMatrix();
-        glTranslatef(0, 0.8f, 0);
-        LowPolyModels::drawBox(0.8f, 1.6f, 0.6f);
-        glPopMatrix();
+        // Terminal housing - use wall panel texture
+        if (TextureManager::isLoaded(TEX_WALL_PANEL)) {
+            glColor3f(0.5f, 0.52f, 0.55f);
+            glPushMatrix();
+            glTranslatef(0, 0.8f, 0);
+            TextureManager::drawTexturedBox(TEX_WALL_PANEL, 0, 0, 0, 0.8f, 1.6f, 0.6f, 1.0f);
+            glPopMatrix();
+        } else {
+            LowPolyModels::setColorMetallic(0.22f, 0.24f, 0.28f);
+            glPushMatrix();
+            glTranslatef(0, 0.8f, 0);
+            LowPolyModels::drawBox(0.8f, 1.6f, 0.6f);
+            glPopMatrix();
+        }
         
         // Screen
         float pulse = sin(levelTime * 3 + 2) * 0.1f + 0.9f;
@@ -1957,24 +2221,44 @@ public:
     }
     
     void drawContainmentCell(bool breached) {
-        // Cell walls
-        LowPolyModels::setColorMetallic(0.3f, 0.32f, 0.35f);
-        
-        // Back wall
-        glPushMatrix();
-        glTranslatef(0, 1.5f, -1.5f);
-        LowPolyModels::drawBox(3.0f, 3.0f, 0.2f);
-        glPopMatrix();
-        
-        // Side walls
-        glPushMatrix();
-        glTranslatef(-1.4f, 1.5f, 0);
-        LowPolyModels::drawBox(0.2f, 3.0f, 3.0f);
-        glPopMatrix();
-        glPushMatrix();
-        glTranslatef(1.4f, 1.5f, 0);
-        LowPolyModels::drawBox(0.2f, 3.0f, 3.0f);
-        glPopMatrix();
+        // Cell walls - use wall panel texture
+        if (TextureManager::isLoaded(TEX_WALL_PANEL)) {
+            glColor3f(0.6f, 0.62f, 0.65f);
+            
+            // Back wall
+            glPushMatrix();
+            glTranslatef(0, 1.5f, -1.5f);
+            TextureManager::drawTexturedBox(TEX_WALL_PANEL, 0, 0, 0, 3.0f, 3.0f, 0.2f, 1.5f);
+            glPopMatrix();
+            
+            // Side walls
+            glPushMatrix();
+            glTranslatef(-1.4f, 1.5f, 0);
+            TextureManager::drawTexturedBox(TEX_WALL_PANEL, 0, 0, 0, 0.2f, 3.0f, 3.0f, 1.5f);
+            glPopMatrix();
+            glPushMatrix();
+            glTranslatef(1.4f, 1.5f, 0);
+            TextureManager::drawTexturedBox(TEX_WALL_PANEL, 0, 0, 0, 0.2f, 3.0f, 3.0f, 1.5f);
+            glPopMatrix();
+        } else {
+            LowPolyModels::setColorMetallic(0.3f, 0.32f, 0.35f);
+            
+            // Back wall
+            glPushMatrix();
+            glTranslatef(0, 1.5f, -1.5f);
+            LowPolyModels::drawBox(3.0f, 3.0f, 0.2f);
+            glPopMatrix();
+            
+            // Side walls
+            glPushMatrix();
+            glTranslatef(-1.4f, 1.5f, 0);
+            LowPolyModels::drawBox(0.2f, 3.0f, 3.0f);
+            glPopMatrix();
+            glPushMatrix();
+            glTranslatef(1.4f, 1.5f, 0);
+            LowPolyModels::drawBox(0.2f, 3.0f, 3.0f);
+            glPopMatrix();
+        }
         
         // Energy barrier (front)
         if (!breached) {
@@ -2027,23 +2311,39 @@ public:
     }
     
     void drawServerRack() {
-        // Main rack
-        LowPolyModels::setColorMetallic(0.18f, 0.18f, 0.2f);
-        glPushMatrix();
-        glTranslatef(0, 2.0f, 0);
-        LowPolyModels::drawBox(0.8f, 4.0f, 1.0f);
-        glPopMatrix();
+        // Main rack - use wall panel texture
+        if (TextureManager::isLoaded(TEX_WALL_PANEL)) {
+            glColor3f(0.4f, 0.4f, 0.45f);
+            glPushMatrix();
+            glTranslatef(0, 2.0f, 0);
+            TextureManager::drawTexturedBox(TEX_WALL_PANEL, 0, 0, 0, 0.8f, 4.0f, 1.0f, 2.0f);
+            glPopMatrix();
+        } else {
+            LowPolyModels::setColorMetallic(0.18f, 0.18f, 0.2f);
+            glPushMatrix();
+            glTranslatef(0, 2.0f, 0);
+            LowPolyModels::drawBox(0.8f, 4.0f, 1.0f);
+            glPopMatrix();
+        }
         
         // Server units with blinking lights
         for (int i = 0; i < 8; i++) {
             float y = 0.4f + i * 0.45f;
             
-            // Unit
-            LowPolyModels::setColorMetallic(0.15f, 0.15f, 0.17f);
-            glPushMatrix();
-            glTranslatef(0, y, 0);
-            LowPolyModels::drawBox(0.75f, 0.35f, 0.95f);
-            glPopMatrix();
+            // Unit - use wall grey texture for server units
+            if (TextureManager::isLoaded(TEX_WALL_GREY)) {
+                glColor3f(0.35f, 0.35f, 0.4f);
+                glPushMatrix();
+                glTranslatef(0, y, 0);
+                TextureManager::drawTexturedBox(TEX_WALL_GREY, 0, 0, 0, 0.75f, 0.35f, 0.95f, 0.5f);
+                glPopMatrix();
+            } else {
+                LowPolyModels::setColorMetallic(0.15f, 0.15f, 0.17f);
+                glPushMatrix();
+                glTranslatef(0, y, 0);
+                LowPolyModels::drawBox(0.75f, 0.35f, 0.95f);
+                glPopMatrix();
+            }
             
             // Status lights
             float phase = sin(levelTime * 3 + i * 0.7f);
@@ -2188,12 +2488,46 @@ public:
         float halfSize = floorSize / 2.0f;
         
         // =====================================================
-        // MOLTEN LAVA FLOOR - SOLID AND VISIBLE
+        // SOLID ROCK TERRAIN - The actual walkable ground (ABOVE LAVA)
+        // =====================================================
+        // This is the terrain you walk on - platforms sit on top of this
+        if (TextureManager::isLoaded(TEX_LAVA_TERRAIN)) {
+            glEnable(GL_TEXTURE_2D);
+            TextureManager::bind(TEX_LAVA_TERRAIN);
+            glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+            
+            // Use darker color to reduce brightness and let lighting affect it
+            glColor3f(0.5f, 0.4f, 0.35f);  // Darken the terrain texture
+            
+            // Set material for proper lighting
+            GLfloat terrainAmbient[] = {0.3f, 0.25f, 0.2f, 1.0f};
+            GLfloat terrainDiffuse[] = {0.5f, 0.4f, 0.35f, 1.0f};
+            glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, terrainAmbient);
+            glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, terrainDiffuse);
+            
+            float groundY = 0.0f;  // Ground level (platforms sit on this)
+            float groundExtent = halfSize * 1.5f;  // Large terrain area
+            float texRepeatTerrain = 8.0f;
+            
+            // Draw main terrain quad
+            glBegin(GL_QUADS);
+            glNormal3f(0, 1, 0);
+            glTexCoord2f(0, 0); glVertex3f(-groundExtent, groundY, -groundExtent);
+            glTexCoord2f(texRepeatTerrain, 0); glVertex3f(groundExtent, groundY, -groundExtent);
+            glTexCoord2f(texRepeatTerrain, texRepeatTerrain); glVertex3f(groundExtent, groundY, groundExtent);
+            glTexCoord2f(0, texRepeatTerrain); glVertex3f(-groundExtent, groundY, groundExtent);
+            glEnd();
+            
+            TextureManager::unbind();
+            glDisable(GL_TEXTURE_2D);
+        }
+        
+        // =====================================================
+        // MOLTEN LAVA FLOOR - TEXTURED VERSION (below ground)
         // =====================================================
         
         // Reset all OpenGL state to ensure clean rendering
         glDisable(GL_BLEND);
-        glDisable(GL_TEXTURE_2D);
         glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_TRUE);
         glDisable(GL_LIGHTING);
@@ -2201,17 +2535,74 @@ public:
         float time = levelTime;
         float mainPulse = sin(time * 1.5f) * 0.1f + 0.9f;
         
-        // =====================================================
-        // SOLID BASE - Guaranteed visible bright orange lava
-        // =====================================================
-        glColor3f(0.8f * mainPulse, 0.25f * mainPulse, 0.03f);
-        glBegin(GL_QUADS);
-        glNormal3f(0, 1, 0);
-        glVertex3f(-halfSize * 3.0f, lavaHeight, -halfSize * 3.0f);
-        glVertex3f(halfSize * 3.0f, lavaHeight, -halfSize * 3.0f);
-        glVertex3f(halfSize * 3.0f, lavaHeight, halfSize * 3.0f);
-        glVertex3f(-halfSize * 3.0f, lavaHeight, halfSize * 3.0f);
-        glEnd();
+        // Try to use textured lava floor
+        if (TextureManager::isLoaded(TEX_LAVA)) {
+            glEnable(GL_TEXTURE_2D);
+            TextureManager::bind(TEX_LAVA);
+            glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);  // Show PURE lava texture
+            
+            // Animated UV offset for flowing lava effect
+            float uvOffsetX = fmod(time * 0.05f, 1.0f);
+            float uvOffsetY = fmod(time * 0.03f, 1.0f);
+            
+            // Draw large textured lava floor with animated UVs - FULL BRIGHTNESS
+            glColor3f(1.0f, 1.0f, 1.0f);  // White for full texture brightness
+            
+            float texRepeat = 15.0f;  // How many times texture repeats
+            
+            glBegin(GL_QUADS);
+            glNormal3f(0, 1, 0);
+            glTexCoord2f(uvOffsetX, uvOffsetY); 
+            glVertex3f(-halfSize * 3.0f, lavaHeight, -halfSize * 3.0f);
+            glTexCoord2f(texRepeat + uvOffsetX, uvOffsetY); 
+            glVertex3f(halfSize * 3.0f, lavaHeight, -halfSize * 3.0f);
+            glTexCoord2f(texRepeat + uvOffsetX, texRepeat + uvOffsetY); 
+            glVertex3f(halfSize * 3.0f, lavaHeight, halfSize * 3.0f);
+            glTexCoord2f(uvOffsetX, texRepeat + uvOffsetY); 
+            glVertex3f(-halfSize * 3.0f, lavaHeight, halfSize * 3.0f);
+            glEnd();
+            
+            // Add glow overlay layer with lava effect texture
+            if (TextureManager::isLoaded(TEX_LAVA_GLOW)) {
+                glEnable(GL_BLEND);
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+                TextureManager::bind(TEX_LAVA_GLOW);
+                
+                float uvOffset2X = fmod(time * -0.07f, 1.0f);  // Opposite direction
+                float uvOffset2Y = fmod(time * 0.04f, 1.0f);
+                
+                glColor4f(1.0f * mainPulse, 0.6f * mainPulse, 0.2f * mainPulse, 0.4f);
+                
+                glBegin(GL_QUADS);
+                glNormal3f(0, 1, 0);
+                glTexCoord2f(uvOffset2X, uvOffset2Y); 
+                glVertex3f(-halfSize * 3.0f, lavaHeight + 0.02f, -halfSize * 3.0f);
+                glTexCoord2f(texRepeat * 0.5f + uvOffset2X, uvOffset2Y); 
+                glVertex3f(halfSize * 3.0f, lavaHeight + 0.02f, -halfSize * 3.0f);
+                glTexCoord2f(texRepeat * 0.5f + uvOffset2X, texRepeat * 0.5f + uvOffset2Y); 
+                glVertex3f(halfSize * 3.0f, lavaHeight + 0.02f, halfSize * 3.0f);
+                glTexCoord2f(uvOffset2X, texRepeat * 0.5f + uvOffset2Y); 
+                glVertex3f(-halfSize * 3.0f, lavaHeight + 0.02f, halfSize * 3.0f);
+                glEnd();
+                
+                glDisable(GL_BLEND);
+            }
+            
+            TextureManager::unbind();
+            glDisable(GL_TEXTURE_2D);
+        } else {
+            // =====================================================
+            // FALLBACK - Procedural orange lava
+            // =====================================================
+            glColor3f(0.8f * mainPulse, 0.25f * mainPulse, 0.03f);
+            glBegin(GL_QUADS);
+            glNormal3f(0, 1, 0);
+            glVertex3f(-halfSize * 3.0f, lavaHeight, -halfSize * 3.0f);
+            glVertex3f(halfSize * 3.0f, lavaHeight, -halfSize * 3.0f);
+            glVertex3f(halfSize * 3.0f, lavaHeight, halfSize * 3.0f);
+            glVertex3f(-halfSize * 3.0f, lavaHeight, halfSize * 3.0f);
+            glEnd();
+        }
         
         // =====================================================
         // LAVA GRID OVERLAY - Wave animation
@@ -2312,10 +2703,16 @@ public:
             glPushMatrix();
             glTranslatef(pillarPositions[p][0], lavaHeight, pillarPositions[p][2]);
             
-            // Dark obsidian pillar
-            LowPolyModels::setColor(0.1f, 0.08f, 0.12f);
+            // Dark obsidian pillar with texture
             float pillarHeight = 15.0f + sin(p * 2.5f) * 5.0f;
-            LowPolyModels::drawBox(3.0f, pillarHeight, 3.0f);
+            
+            if (TextureManager::isLoaded(TEX_PILLAR) || TextureManager::isLoaded(TEX_ROCK)) {
+                TextureID pillarTex = TextureManager::isLoaded(TEX_PILLAR) ? TEX_PILLAR : TEX_ROCK;
+                TextureManager::drawTexturedBox(pillarTex, 0, pillarHeight * 0.5f, 0, 3.0f, pillarHeight, 3.0f, 0.5f);
+            } else {
+                LowPolyModels::setColor(0.1f, 0.08f, 0.12f);
+                LowPolyModels::drawBox(3.0f, pillarHeight, 3.0f);
+            }
             
             // Glowing rune at top
             glDisable(GL_LIGHTING);
@@ -2416,7 +2813,63 @@ public:
     }
     
     void drawHellSky() {
-        // Draw sky in WORLD SPACE centered around origin
+        // =====================================================
+        // TITAN MOON SKYBOX - Beautiful space environment for Level 2
+        // =====================================================
+        
+        // Try to use TitanMoon textured skybox first
+        if (TextureManager::isLoaded(TEX_SKYBOX_FRONT)) {
+            glPushMatrix();
+            
+            // Move skybox to follow player
+            glTranslatef(lastPlayerPos.x, 0, lastPlayerPos.z);
+            
+            // Draw the textured skybox
+            TextureManager::drawSkybox(0, 50.0f, 0, 400.0f);
+            
+            glPopMatrix();
+            
+            // Add red/orange filter overlay for hellish atmosphere
+            glDisable(GL_DEPTH_TEST);
+            glDisable(GL_LIGHTING);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            
+            // Pulsing intensity for dynamic hell feel
+            float filterPulse = sin(levelTime * 0.8f) * 0.05f + 0.15f;
+            glColor4f(0.8f, 0.2f, 0.1f, filterPulse);  // Red-orange tint
+            
+            // Draw fullscreen overlay quad
+            glMatrixMode(GL_PROJECTION);
+            glPushMatrix();
+            glLoadIdentity();
+            glOrtho(-1, 1, -1, 1, -1, 1);
+            glMatrixMode(GL_MODELVIEW);
+            glPushMatrix();
+            glLoadIdentity();
+            
+            glBegin(GL_QUADS);
+            glVertex2f(-1, -1);
+            glVertex2f(1, -1);
+            glVertex2f(1, 1);
+            glVertex2f(-1, 1);
+            glEnd();
+            
+            glPopMatrix();
+            glMatrixMode(GL_PROJECTION);
+            glPopMatrix();
+            glMatrixMode(GL_MODELVIEW);
+            
+            glDisable(GL_BLEND);
+            glEnable(GL_DEPTH_TEST);
+            glEnable(GL_LIGHTING);
+            
+            return;  // Done with textured skybox + filter
+        }
+        
+        // =====================================================
+        // FALLBACK - Procedural gradient sky
+        // =====================================================
         glPushMatrix();
         
         // Move sky to player position so it surrounds them
@@ -2803,13 +3256,25 @@ public:
             glTranslatef(platforms[i].center.x, platforms[i].center.y, platforms[i].center.z);
             
             if (levelID == LEVEL_2_HELL_ARENA) {
-                // Draw as rocky platform
-                LowPolyModels::setColor(0.4f, 0.25f, 0.15f);
+                // Draw textured rocky/lava platform
+                TextureID platTex = TextureManager::isLoaded(TEX_PLATFORM_LAVA) ? TEX_PLATFORM_LAVA : TEX_ROCK;
+                if (TextureManager::isLoaded(platTex)) {
+                    TextureManager::drawTexturedBox(platTex, 0, 0, 0,
+                        platforms[i].size.x, platforms[i].size.y, platforms[i].size.z, 0.5f);
+                } else {
+                    LowPolyModels::setColor(0.4f, 0.25f, 0.15f);
+                    LowPolyModels::drawPlatform(platforms[i].size.x, platforms[i].size.y, platforms[i].size.z);
+                }
             } else {
-                LowPolyModels::setColor(0.35f, 0.35f, 0.38f);
+                // Draw textured metal platform for facility
+                if (TextureManager::isLoaded(TEX_PLATFORM)) {
+                    TextureManager::drawTexturedBox(TEX_PLATFORM, 0, 0, 0,
+                        platforms[i].size.x, platforms[i].size.y, platforms[i].size.z, 0.3f);
+                } else {
+                    LowPolyModels::setColor(0.35f, 0.35f, 0.38f);
+                    LowPolyModels::drawPlatform(platforms[i].size.x, platforms[i].size.y, platforms[i].size.z);
+                }
             }
-            
-            LowPolyModels::drawPlatform(platforms[i].size.x, platforms[i].size.y, platforms[i].size.z);
             glPopMatrix();
         }
         DEBUG_LOG("Level::draw platforms done\n");
@@ -2824,7 +3289,15 @@ public:
             if (levelID == LEVEL_2_HELL_ARENA) {
                 glPushMatrix();
                 glTranslatef(crates[i].position.x, crates[i].position.y, crates[i].position.z);
-                LowPolyModels::drawLavaRock(crates[i].size);
+                
+                // Draw textured lava rock
+                if (TextureManager::isLoaded(TEX_ROCK)) {
+                    TextureManager::drawTexturedBox(TEX_ROCK, 0, crates[i].size * 0.5f, 0,
+                        crates[i].size, crates[i].size, crates[i].size, 0.5f);
+                } else {
+                    LowPolyModels::drawLavaRock(crates[i].size);
+                }
+                
                 glPopMatrix();
             } else {
                 crates[i].draw();

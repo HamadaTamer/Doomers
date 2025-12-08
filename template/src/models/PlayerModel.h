@@ -7,6 +7,7 @@
 #define PLAYER_MODEL_H
 
 #include "ModelUtils.h"
+#include "../TextureManager.h"
 
 namespace PlayerModel {
 
@@ -135,17 +136,30 @@ namespace PlayerModel {
 
     // ==================== HELPER: Draw Tactical Vest / Plate Carrier ====================
     inline void drawPlateCarrier() {
-        // Front plate
-        setColorMetallic(0.15f, 0.17f, 0.13f);
+        // Check if texture is available for armor plates
+        bool hasArmorTexture = TextureManager::isLoaded(TEX_GALVANIZED_BLUE);
+        GLuint armorTex = hasArmorTexture ? TextureManager::get(TEX_GALVANIZED_BLUE) : 0;
+        
+        // Front plate - WITH TEXTURE
         glPushMatrix();
         glTranslatef(0, 0.05f, 0.12f);
-        drawArmorPlate(0.28f, 0.32f, 0.05f);
+        if (hasArmorTexture) {
+            drawTexturedBox(0.28f, 0.32f, 0.05f, armorTex);
+        } else {
+            setColorMetallic(0.15f, 0.17f, 0.13f);
+            drawArmorPlate(0.28f, 0.32f, 0.05f);
+        }
         glPopMatrix();
         
-        // Back plate
+        // Back plate - WITH TEXTURE (this is the key fix!)
         glPushMatrix();
         glTranslatef(0, 0.05f, -0.12f);
-        drawArmorPlate(0.28f, 0.32f, 0.05f);
+        if (hasArmorTexture) {
+            drawTexturedBox(0.28f, 0.32f, 0.05f, armorTex);
+        } else {
+            setColorMetallic(0.15f, 0.17f, 0.13f);
+            drawArmorPlate(0.28f, 0.32f, 0.05f);
+        }
         glPopMatrix();
         
         // Shoulder straps
@@ -476,13 +490,18 @@ namespace PlayerModel {
         
         glPopMatrix();
         
-        // ===================== TORSO =====================
+        // ===================== TORSO ===================== (with TEXTURED armor)
         glPushMatrix();
         glTranslatef(0, 0.82f + bodyBob + breathe, 0);
         
-        // Base torso (combat shirt) - doesn't tilt, stays upright
-        setColor(0.18f, 0.2f, 0.16f);
-        drawBox(0.26f, 0.32f, 0.16f);
+        // Base torso (combat shirt) - TEXTURED with galvanized blue armor
+        if (TextureManager::isLoaded(TEX_GALVANIZED_BLUE)) {
+            GLuint armorTex = TextureManager::get(TEX_GALVANIZED_BLUE);
+            drawTexturedBox(0.26f, 0.32f, 0.16f, armorTex);
+        } else {
+            setColor(0.18f, 0.2f, 0.16f);
+            drawBox(0.26f, 0.32f, 0.16f);
+        }
         
         // Draw plate carrier on top
         drawPlateCarrier();
@@ -493,15 +512,15 @@ namespace PlayerModel {
         // Pivot point at shoulder height
         glTranslatef(0, 0.10f, 0.06f);
         
-        // armAimAngle is camera pitch. Positive = looking up, negative = looking down.
-        // Positive X rotation tilts weapon forward (down in world).
-        // So use positive aimPitch to aim down, negative to aim up.
+        // Weapon geometry: barrel points toward +Z in local coords
+        // Player body is already rotated 180 deg around Y, so weapon +Z becomes world -Z (forward)
+        // Apply pitch rotation for vertical aiming (positive pitch = look up = weapon tilts up)
         float aimPitch = armAimAngle + shootRecoil * 5.0f;
-        glRotatef(aimPitch, 1, 0, 0);
+        glRotatef(-aimPitch, 1, 0, 0); // Negative because we want weapon to tilt UP when looking UP
         
         // === WEAPON FIRST (arms attach to it) ===
         glPushMatrix();
-        glTranslatef(0.02f, 0, 0.20f); // Weapon centered, forward from chest
+        glTranslatef(0.02f, 0, 0.20f); // Weapon centered, forward from chest (+Z is forward in body space)
         glScalef(0.55f, 0.55f, 0.55f);
         
         // Draw shoulder connection pieces (visible from behind)
@@ -627,6 +646,7 @@ namespace PlayerModel {
         setColorMetallic(0.08f, 0.08f, 0.10f);
         glPushMatrix();
         glTranslatef(0, 0.03f, 0.55f);
+        glRotatef(90, 1, 0, 0); // Rotate cylinder to point FORWARD (+Z) instead of UP (+Y)
         drawCylinder(0.022f, 0.20f, 12);
         glPopMatrix();
         
@@ -638,6 +658,7 @@ namespace PlayerModel {
         // Muzzle opening
         setColorMetallic(0.04f, 0.04f, 0.04f);
         glTranslatef(0, 0, 0.042f);
+        glRotatef(90, 1, 0, 0); // Rotate cylinder to point FORWARD (+Z)
         drawCylinder(0.018f, 0.02f, 8);
         glPopMatrix();
         
@@ -694,10 +715,12 @@ namespace PlayerModel {
         setColorMetallic(0.11f, 0.11f, 0.13f);
         glPushMatrix();
         glTranslatef(0, 0.02f, -0.22f);
-        // Stock tube
+        // Stock tube - pointing backward (-Z)
+        glRotatef(-90, 1, 0, 0); // Rotate cylinder to point -Z (backward)
         drawCylinder(0.018f, 0.16f, 10);
-        // Stock pad
-        glTranslatef(0, 0, -0.16f);
+        // Stock pad - move backward from end of tube
+        glTranslatef(0, 0.16f, 0); // Move along tube length (now in -Z direction after rotation, which is tube's local +Z)
+        glRotatef(90, 1, 0, 0); // Reset rotation for the box
         setColor(0.06f, 0.06f, 0.06f);
         drawBox(0.04f, 0.07f, 0.03f);
         glPopMatrix();
@@ -715,9 +738,10 @@ namespace PlayerModel {
             setColorMetallic(0.10f, 0.10f, 0.10f);
             glPushMatrix();
             glTranslatef(0.05f, 0.02f, 0.42f);
+            glRotatef(90, 1, 0, 0); // Rotate to point FORWARD (+Z)
             drawCylinder(0.016f, 0.06f, 10);
-            // Light lens (glowing)
-            glTranslatef(0, 0, 0.062f);
+            // Light lens (glowing) - at end of cylinder (now in +Z direction)
+            glTranslatef(0, 0.06f, 0); // Move along cylinder length
             setColor(1.0f, 0.98f, 0.92f);
             setEmissive(0.95f * lightIntensity, 0.90f * lightIntensity, 0.75f * lightIntensity);
             drawSphere(0.018f, 10);

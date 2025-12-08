@@ -8,6 +8,8 @@
 #include "Vector3.h"
 #include "GameConfig.h"
 #include "LowPolyModels.h"
+#include "TextureManager.h"
+#include "ModelLoader.h"
 #include <glut.h>
 #include <stdlib.h>
 
@@ -653,6 +655,24 @@ public:
         // Check if boss is enraged (low health)
         bool isEnraged = (type == ENEMY_BOSS && health < maxHealth * 0.3f);
         
+        // Apply skin texture if available for more detailed rendering
+        TextureID enemyTex = TEX_ENEMY_ZOMBIE;
+        switch (type) {
+            case ENEMY_ZOMBIE:
+                enemyTex = TEX_ENEMY_ZOMBIE;
+                break;
+            case ENEMY_DEMON:
+                enemyTex = TEX_ENEMY_DEMON;
+                break;
+            case ENEMY_BOSS:
+                enemyTex = TEX_ENEMY_BOSS;
+                break;
+        }
+        
+        // NOTE: Procedural enemy models don't have texture coordinates
+        // They use vertex colors via setColor() in EnemyModels.h
+        // Textures would require UV coordinates on each vertex
+        
         switch (type) {
             case ENEMY_ZOMBIE:
                 // Use new detailed zombie model with attack animation
@@ -663,10 +683,25 @@ public:
                 LowPolyModels::drawDemon(rotationY, animPhase, attackPhase);
                 break;
             case ENEMY_BOSS:
-                // Use new detailed boss model with rage effect
-                LowPolyModels::drawBoss(rotationY, animPhase, (float)health, (float)maxHealth, isEnraged);
+                // Try to use the devil 3D model if loaded
+                if (ModelLoader::isLoaded(MODEL_DEVIL_BOSS)) {
+                    glPushMatrix();
+                    glRotatef(rotationY, 0, 1, 0);
+                    // Scale and position the devil model appropriately
+                    float bossScale = 3.5f;  // Adjust based on model size
+                    // Offset Y to raise the model so feet are on ground (model is centered)
+                    // The model gets centered around its bounding box, so we need to lift it
+                    glTranslatef(0, bossScale * 0.5f, 0);  // Raise by half the model height
+                    ModelLoader::draw(MODEL_DEVIL_BOSS, bossScale);
+                    glPopMatrix();
+                } else {
+                    // Fallback to procedural boss model with rage effect
+                    LowPolyModels::drawBoss(rotationY, animPhase, (float)health, (float)maxHealth, isEnraged);
+                }
                 break;
         }
+        
+        // Procedural models rendered with vertex colors
         
         // Draw red damage overlay when hurt - FULL BODY RED FLASH
         if (isFlashing) {
