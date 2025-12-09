@@ -1033,12 +1033,12 @@ public:
         floorSize = 80.0f;       // Smaller, tighter arena
         wallHeight = 0.0f;        // Outdoor - no walls
         hasLava = true;
-        lavaHeight = -0.5f;       // Lava just below ground level (less punishing)
+        lavaHeight = 0.0f;        // Lava at floor level - platforms float above it
         maxTime = 480.0f;         // 8 minutes
         drawDistance = 100.0f;
         
         // Player starts on the main arena platform (elevated starting platform)
-        playerStart = Vector3(0, PLAYER_HEIGHT + 2.5f, -10);
+        playerStart = Vector3(0, PLAYER_HEIGHT + 2.0f, -10);
         objective = Vector3(0, 5, 25);
         
         // ===================================================================
@@ -1046,43 +1046,43 @@ public:
         // ===================================================================
         numPlatforms = 0;
         
-        // MAIN ARENA FLOOR - Large central platform (the main fighting area)
-        platforms[numPlatforms] = Platform(Vector3(0, 0.5f, 0), Vector3(35, 1.0f, 35));
+        // MAIN ARENA FLOOR - Large central platform floating above lava
+        platforms[numPlatforms] = Platform(Vector3(0, 1.5f, 0), Vector3(35, 1.0f, 35));
         numPlatforms++;
         
         // ELEVATED CORNERS - 4 raised platforms around the arena
-        platforms[numPlatforms] = Platform(Vector3(-20, 2.0f, -20), Vector3(8, 1.0f, 8));
+        platforms[numPlatforms] = Platform(Vector3(-20, 3.0f, -20), Vector3(8, 1.0f, 8));
         numPlatforms++;
-        platforms[numPlatforms] = Platform(Vector3(20, 2.0f, -20), Vector3(8, 1.0f, 8));
+        platforms[numPlatforms] = Platform(Vector3(20, 3.0f, -20), Vector3(8, 1.0f, 8));
         numPlatforms++;
-        platforms[numPlatforms] = Platform(Vector3(-20, 2.0f, 20), Vector3(8, 1.0f, 8));
+        platforms[numPlatforms] = Platform(Vector3(-20, 3.0f, 20), Vector3(8, 1.0f, 8));
         numPlatforms++;
-        platforms[numPlatforms] = Platform(Vector3(20, 2.0f, 20), Vector3(8, 1.0f, 8));
+        platforms[numPlatforms] = Platform(Vector3(20, 3.0f, 20), Vector3(8, 1.0f, 8));
         numPlatforms++;
         
         // RAMPS connecting corners to main floor (easy traversal)
-        platforms[numPlatforms] = Platform(Vector3(-15, 1.2f, -15), Vector3(5, 0.5f, 5));
+        platforms[numPlatforms] = Platform(Vector3(-15, 2.2f, -15), Vector3(5, 0.5f, 5));
         numPlatforms++;
-        platforms[numPlatforms] = Platform(Vector3(15, 1.2f, -15), Vector3(5, 0.5f, 5));
+        platforms[numPlatforms] = Platform(Vector3(15, 2.2f, -15), Vector3(5, 0.5f, 5));
         numPlatforms++;
-        platforms[numPlatforms] = Platform(Vector3(-15, 1.2f, 15), Vector3(5, 0.5f, 5));
+        platforms[numPlatforms] = Platform(Vector3(-15, 2.2f, 15), Vector3(5, 0.5f, 5));
         numPlatforms++;
-        platforms[numPlatforms] = Platform(Vector3(15, 1.2f, 15), Vector3(5, 0.5f, 5));
+        platforms[numPlatforms] = Platform(Vector3(15, 2.2f, 15), Vector3(5, 0.5f, 5));
         numPlatforms++;
         
         // BOSS PLATFORM - Elevated throne at the back
-        platforms[numPlatforms] = Platform(Vector3(0, 3.5f, 30), Vector3(15, 1.5f, 10));
+        platforms[numPlatforms] = Platform(Vector3(0, 4.5f, 30), Vector3(15, 1.5f, 10));
         numPlatforms++;
         // Steps leading to boss platform
-        platforms[numPlatforms] = Platform(Vector3(0, 1.5f, 22), Vector3(10, 0.8f, 5));
+        platforms[numPlatforms] = Platform(Vector3(0, 2.5f, 22), Vector3(10, 0.8f, 5));
         numPlatforms++;
-        platforms[numPlatforms] = Platform(Vector3(0, 2.5f, 26), Vector3(12, 0.8f, 5));
+        platforms[numPlatforms] = Platform(Vector3(0, 3.5f, 26), Vector3(12, 0.8f, 5));
         numPlatforms++;
         
         // SIDE WALKWAYS - For strategic movement
-        platforms[numPlatforms] = Platform(Vector3(-30, 1.0f, 0), Vector3(5, 0.6f, 20));
+        platforms[numPlatforms] = Platform(Vector3(-30, 2.0f, 0), Vector3(5, 0.6f, 20));
         numPlatforms++;
-        platforms[numPlatforms] = Platform(Vector3(30, 1.0f, 0), Vector3(5, 0.6f, 20));
+        platforms[numPlatforms] = Platform(Vector3(30, 2.0f, 0), Vector3(5, 0.6f, 20));
         numPlatforms++;
         
         // ===================================================================
@@ -1091,38 +1091,38 @@ public:
         numEnemies = 0;
         
         // REGULAR ENEMIES (10 total - clear these first)
-        // Main arena zombies
-        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(-10, 1.0f, -5), Vector3(-15, 1.0f, -5), Vector3(-5, 1.0f, -5));
+        // Main arena zombies (on main platform at Y=1.5)
+        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(-10, 2.0f, -5), Vector3(-15, 2.0f, -5), Vector3(-5, 2.0f, -5));
         numEnemies++;
-        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(10, 1.0f, -5), Vector3(5, 1.0f, -5), Vector3(15, 1.0f, -5));
+        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(10, 2.0f, -5), Vector3(5, 2.0f, -5), Vector3(15, 2.0f, -5));
         numEnemies++;
-        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(0, 1.0f, 10), Vector3(-5, 1.0f, 10), Vector3(5, 1.0f, 10));
-        numEnemies++;
-        
-        // Corner platform demons
-        enemies[numEnemies].init(ENEMY_DEMON, Vector3(-20, 2.5f, -20), Vector3(-23, 2.5f, -20), Vector3(-17, 2.5f, -20));
-        numEnemies++;
-        enemies[numEnemies].init(ENEMY_DEMON, Vector3(20, 2.5f, -20), Vector3(17, 2.5f, -20), Vector3(23, 2.5f, -20));
-        numEnemies++;
-        enemies[numEnemies].init(ENEMY_DEMON, Vector3(-20, 2.5f, 20), Vector3(-23, 2.5f, 20), Vector3(-17, 2.5f, 20));
-        numEnemies++;
-        enemies[numEnemies].init(ENEMY_DEMON, Vector3(20, 2.5f, 20), Vector3(17, 2.5f, 20), Vector3(23, 2.5f, 20));
+        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(0, 2.0f, 10), Vector3(-5, 2.0f, 10), Vector3(5, 2.0f, 10));
         numEnemies++;
         
-        // Side walkway enemies
-        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(-30, 1.5f, 5), Vector3(-30, 1.5f, 0), Vector3(-30, 1.5f, 10));
+        // Corner platform demons (on corner platforms at Y=3.0)
+        enemies[numEnemies].init(ENEMY_DEMON, Vector3(-20, 3.5f, -20), Vector3(-23, 3.5f, -20), Vector3(-17, 3.5f, -20));
         numEnemies++;
-        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(30, 1.5f, -5), Vector3(30, 1.5f, -10), Vector3(30, 1.5f, 0));
+        enemies[numEnemies].init(ENEMY_DEMON, Vector3(20, 3.5f, -20), Vector3(17, 3.5f, -20), Vector3(23, 3.5f, -20));
         numEnemies++;
-        // Enemy near player - uses config distance to stay away from spawn
-        enemies[numEnemies].init(ENEMY_DEMON, Vector3(0, 1.0f, LEVEL2_ENEMY_SPAWN_DISTANCE), 
-                                 Vector3(-5, 1.0f, LEVEL2_ENEMY_SPAWN_DISTANCE), 
-                                 Vector3(5, 1.0f, LEVEL2_ENEMY_SPAWN_DISTANCE));
+        enemies[numEnemies].init(ENEMY_DEMON, Vector3(-20, 3.5f, 20), Vector3(-23, 3.5f, 20), Vector3(-17, 3.5f, 20));
+        numEnemies++;
+        enemies[numEnemies].init(ENEMY_DEMON, Vector3(20, 3.5f, 20), Vector3(17, 3.5f, 20), Vector3(23, 3.5f, 20));
+        numEnemies++;
+        
+        // Side walkway enemies (on side walkways at Y=2.0)
+        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(-30, 2.5f, 5), Vector3(-30, 2.5f, 0), Vector3(-30, 2.5f, 10));
+        numEnemies++;
+        enemies[numEnemies].init(ENEMY_ZOMBIE, Vector3(30, 2.5f, -5), Vector3(30, 2.5f, -10), Vector3(30, 2.5f, 0));
+        numEnemies++;
+        // Enemy near player - on main platform
+        enemies[numEnemies].init(ENEMY_DEMON, Vector3(0, 2.0f, LEVEL2_ENEMY_SPAWN_DISTANCE), 
+                                 Vector3(-5, 2.0f, LEVEL2_ENEMY_SPAWN_DISTANCE), 
+                                 Vector3(5, 2.0f, LEVEL2_ENEMY_SPAWN_DISTANCE));
         numEnemies++;
         
         // THE DEMON KING BOSS - Starts inactive, spawns after clearing regular enemies
         bossEnemyIndex = numEnemies;
-        enemies[numEnemies].init(ENEMY_BOSS, Vector3(0, 4.0f, 30), Vector3(-5, 4.0f, 30), Vector3(5, 4.0f, 30));
+        enemies[numEnemies].init(ENEMY_BOSS, Vector3(0, 5.0f, 30), Vector3(-5, 5.0f, 30), Vector3(5, 5.0f, 30));
         enemies[numEnemies].active = false; // Boss starts INACTIVE
         numEnemies++;
         
@@ -1131,48 +1131,48 @@ public:
         // ===================================================================
         numCollectibles = 0;
         
-        // Starting supplies (near spawn)
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-5, 1.0f, -20), 30);
+        // Starting supplies (near spawn on main platform)
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-5, 2.0f, -20), 30);
         numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(5, 1.0f, -20), 40);
-        numCollectibles++;
-        
-        // Corner platform pickups
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-20, 2.5f, -20), 35);
-        numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(20, 2.5f, -20), 35);
-        numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-20, 2.5f, 20), 35);
-        numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(20, 2.5f, 20), 35);
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(5, 2.0f, -20), 40);
         numCollectibles++;
         
-        // Arena center pickups
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(0, 1.0f, 0), 50);
+        // Corner platform pickups (on corner platforms at Y=3.0)
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-20, 3.5f, -20), 35);
         numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(0, 1.0f, -8), 50);
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(20, 3.5f, -20), 35);
         numCollectibles++;
-        
-        // Boss area supplies (for the boss fight)
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-8, 4.0f, 30), 75);
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-20, 3.5f, 20), 35);
         numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(8, 4.0f, 30), 75);
-        numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(0, 4.0f, 35), 60);
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(20, 3.5f, 20), 35);
         numCollectibles++;
         
-        // Powerups
-        collectibles[numCollectibles].init(COLLECT_DAMAGE_BOOST, Vector3(-30, 1.5f, -10), 12);
+        // Arena center pickups (on main platform at Y=1.5)
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(0, 2.0f, 0), 50);
         numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_SPEED_BOOST, Vector3(30, 1.5f, 10), 12);
-        numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_INVINCIBILITY, Vector3(0, 2.0f, 22), 10); // Before boss
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(0, 2.0f, -8), 50);
         numCollectibles++;
         
-        // SHIELD - Critical for boss fight! Gives 100 shield points
-        collectibles[numCollectibles].init(COLLECT_SHIELD, Vector3(-20, 2.5f, 20), 100);
+        // Boss area supplies (for the boss fight at Y=4.5)
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-8, 5.0f, 30), 75);
         numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_SHIELD, Vector3(20, 2.5f, -20), 100);
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(8, 5.0f, 30), 75);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(0, 5.0f, 35), 60);
+        numCollectibles++;
+        
+        // Powerups (on side walkways at Y=2.0)
+        collectibles[numCollectibles].init(COLLECT_DAMAGE_BOOST, Vector3(-30, 2.5f, -10), 12);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_SPEED_BOOST, Vector3(30, 2.5f, 10), 12);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_INVINCIBILITY, Vector3(0, 3.0f, 22), 10); // Before boss
+        numCollectibles++;
+        
+        // SHIELD - Critical for boss fight! Gives 100 shield points (on corner platforms)
+        collectibles[numCollectibles].init(COLLECT_SHIELD, Vector3(-20, 3.5f, 20), 100);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_SHIELD, Vector3(20, 3.5f, -20), 100);
         numCollectibles++;
         
         // ===================================================================
@@ -1180,20 +1180,20 @@ public:
         // ===================================================================
         numCrates = 0;
         
-        // Cover rocks on main arena
-        crates[numCrates].position = Vector3(-12, 0.5f, 5);
+        // Cover rocks on main arena (on main platform at Y=1.5)
+        crates[numCrates].position = Vector3(-12, 1.5f, 5);
         crates[numCrates].size = 2.0f;
         crates[numCrates].isSciFi = false;
         crates[numCrates].updateBounds();
         numCrates++;
         
-        crates[numCrates].position = Vector3(12, 0.5f, -5);
+        crates[numCrates].position = Vector3(12, 1.5f, -5);
         crates[numCrates].size = 2.0f;
         crates[numCrates].isSciFi = false;
         crates[numCrates].updateBounds();
         numCrates++;
         
-        crates[numCrates].position = Vector3(0, 0.5f, 12);
+        crates[numCrates].position = Vector3(0, 1.5f, 12);
         crates[numCrates].size = 1.8f;
         crates[numCrates].isSciFi = false;
         crates[numCrates].updateBounds();
@@ -2514,42 +2514,8 @@ public:
         float halfSize = floorSize / 2.0f;
         
         // =====================================================
-        // SOLID ROCK TERRAIN - The actual walkable ground (ABOVE LAVA)
-        // =====================================================
-        // This is the terrain you walk on - platforms sit on top of this
-        if (TextureManager::isLoaded(TEX_LAVA_TERRAIN)) {
-            glEnable(GL_TEXTURE_2D);
-            TextureManager::bind(TEX_LAVA_TERRAIN);
-            glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-            
-            // Use darker color to reduce brightness and let lighting affect it
-            glColor3f(0.5f, 0.4f, 0.35f);  // Darken the terrain texture
-            
-            // Set material for proper lighting
-            GLfloat terrainAmbient[] = {0.3f, 0.25f, 0.2f, 1.0f};
-            GLfloat terrainDiffuse[] = {0.5f, 0.4f, 0.35f, 1.0f};
-            glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, terrainAmbient);
-            glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, terrainDiffuse);
-            
-            float groundY = 0.0f;  // Ground level (platforms sit on this)
-            float groundExtent = halfSize * 1.5f;  // Large terrain area
-            float texRepeatTerrain = 8.0f;
-            
-            // Draw main terrain quad
-            glBegin(GL_QUADS);
-            glNormal3f(0, 1, 0);
-            glTexCoord2f(0, 0); glVertex3f(-groundExtent, groundY, -groundExtent);
-            glTexCoord2f(texRepeatTerrain, 0); glVertex3f(groundExtent, groundY, -groundExtent);
-            glTexCoord2f(texRepeatTerrain, texRepeatTerrain); glVertex3f(groundExtent, groundY, groundExtent);
-            glTexCoord2f(0, texRepeatTerrain); glVertex3f(-groundExtent, groundY, groundExtent);
-            glEnd();
-            
-            TextureManager::unbind();
-            glDisable(GL_TEXTURE_2D);
-        }
-        
-        // =====================================================
-        // MOLTEN LAVA FLOOR - TEXTURED VERSION (below ground)
+        // MOLTEN LAVA FLOOR - The base layer (at Y=0)
+        // Platforms float above this lava
         // =====================================================
         
         // Reset all OpenGL state to ensure clean rendering
@@ -2565,7 +2531,7 @@ public:
         if (TextureManager::isLoaded(TEX_LAVA)) {
             glEnable(GL_TEXTURE_2D);
             TextureManager::bind(TEX_LAVA);
-            glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);  // Show PURE lava texture
+            glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);  // Modulate for proper color
             
             // Animated UV offset for flowing lava effect
             float uvOffsetX = fmod(time * 0.05f, 1.0f);
@@ -2841,29 +2807,81 @@ public:
     void drawHellSky() {
         // =====================================================
         // TITAN MOON SKYBOX - Beautiful space environment for Level 2
+        // With graceful day-night transition based on enemy kills
         // =====================================================
+        
+        // Calculate how many regular enemies are killed (for day-night transition)
+        int totalRegularEnemies = 0;
+        int killedRegularEnemies = 0;
+        for (int i = 0; i < numEnemies; i++) {
+            if (enemies[i].type != ENEMY_BOSS) {
+                totalRegularEnemies++;
+                if (!enemies[i].active || enemies[i].health <= 0) {
+                    killedRegularEnemies++;
+                }
+            }
+        }
+        
+        // Transition progress: 0.0 = start (sunset), 1.0 = all enemies killed (night)
+        float transitionProgress = (totalRegularEnemies > 0) ? 
+            (float)killedRegularEnemies / (float)totalRegularEnemies : 0.0f;
+        
+        // Check if boss is active for final darkness
+        bool bossActive = bossEnemyIndex >= 0 && bossEnemyIndex < numEnemies && enemies[bossEnemyIndex].active;
+        if (bossActive) {
+            transitionProgress = 1.0f;  // Force full night when boss spawns
+        }
         
         // Try to use TitanMoon textured skybox first
         if (TextureManager::isLoaded(TEX_SKYBOX_FRONT)) {
-            glPushMatrix();
+            // Draw the textured skybox centered on player (Y should be at player height, not 50)
+            TextureManager::drawSkybox(lastPlayerPos.x, lastPlayerPos.y, lastPlayerPos.z, 500.0f);
             
-            // Move skybox to follow player
-            glTranslatef(lastPlayerPos.x, 0, lastPlayerPos.z);
-            
-            // Draw the textured skybox
-            TextureManager::drawSkybox(0, 50.0f, 0, 400.0f);
-            
-            glPopMatrix();
-            
-            // Add red/orange filter overlay for hellish atmosphere
+            // =====================================================
+            // GRACEFUL DAY-NIGHT FILTER TRANSITION
+            // =====================================================
             glDisable(GL_DEPTH_TEST);
             glDisable(GL_LIGHTING);
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             
-            // Pulsing intensity for dynamic hell feel
-            float filterPulse = sin(levelTime * 0.8f) * 0.05f + 0.15f;
-            glColor4f(0.8f, 0.2f, 0.1f, filterPulse);  // Red-orange tint
+            // Calculate filter colors based on transition progress
+            float filterR, filterG, filterB, filterAlpha;
+            float filterPulse = sin(levelTime * 0.8f) * 0.03f;
+            
+            if (transitionProgress < 0.3f) {
+                // SUNSET - warm orange/red tint (start of level)
+                float t = transitionProgress / 0.3f;
+                filterR = 0.9f - t * 0.2f;    // 0.9 -> 0.7
+                filterG = 0.4f - t * 0.15f;   // 0.4 -> 0.25
+                filterB = 0.1f + t * 0.1f;    // 0.1 -> 0.2
+                filterAlpha = 0.1f + filterPulse;
+            } else if (transitionProgress < 0.7f) {
+                // DUSK - transition from orange to purple/blue
+                float t = (transitionProgress - 0.3f) / 0.4f;
+                filterR = 0.7f - t * 0.4f;    // 0.7 -> 0.3
+                filterG = 0.25f - t * 0.1f;   // 0.25 -> 0.15
+                filterB = 0.2f + t * 0.3f;    // 0.2 -> 0.5
+                filterAlpha = 0.12f + t * 0.08f + filterPulse;  // Gradually darker
+            } else {
+                // NIGHT - deep blue/purple darkness (boss phase)
+                float t = (transitionProgress - 0.7f) / 0.3f;
+                filterR = 0.3f - t * 0.2f;    // 0.3 -> 0.1
+                filterG = 0.15f - t * 0.05f;  // 0.15 -> 0.1
+                filterB = 0.5f - t * 0.1f;    // 0.5 -> 0.4
+                filterAlpha = 0.2f + t * 0.15f + filterPulse;  // Dark overlay
+                
+                // Extra darkness pulse when boss is active
+                if (bossActive) {
+                    float bossPulse = sin(levelTime * 2.0f) * 0.05f;
+                    filterAlpha += 0.1f + bossPulse;
+                    filterR = 0.05f;
+                    filterG = 0.05f;
+                    filterB = 0.15f;
+                }
+            }
+            
+            glColor4f(filterR, filterG, filterB, filterAlpha);
             
             // Draw fullscreen overlay quad
             glMatrixMode(GL_PROJECTION);
@@ -2894,7 +2912,7 @@ public:
         }
         
         // =====================================================
-        // FALLBACK - Procedural gradient sky
+        // FALLBACK - Procedural gradient sky with transition
         // =====================================================
         glPushMatrix();
         
@@ -2910,25 +2928,41 @@ public:
         
         float skyPulse = sin(levelTime * 0.5f) * 0.1f + 0.9f;
         
-        // Check if boss is active - change sky color!
-        bool bossActive = bossEnemyIndex >= 0 && bossEnemyIndex < numEnemies && enemies[bossEnemyIndex].active;
-        
-        // Sky colors based on boss phase
+        // Sky colors based on transition progress (graceful change)
         float skyTopR, skyTopG, skyTopB;
         float skyBotR, skyBotG, skyBotB;
         
-        if (bossActive) {
-            // BOSS PHASE - Stormy blue sky!
-            skyTopR = 0.02f; skyTopG = 0.03f; skyTopB = 0.12f;  // Dark blue top
-            skyBotR = 0.1f * skyPulse; skyBotG = 0.15f * skyPulse; skyBotB = 0.4f * skyPulse;  // Bright blue bottom
+        if (transitionProgress < 0.3f) {
+            // SUNSET - Orange/red sky
+            float t = transitionProgress / 0.3f;
+            skyTopR = 0.3f - t * 0.15f;
+            skyTopG = 0.1f - t * 0.05f;
+            skyTopB = 0.08f;
+            skyBotR = 0.9f * skyPulse - t * 0.2f;
+            skyBotG = 0.4f * skyPulse - t * 0.15f;
+            skyBotB = 0.15f * skyPulse;
+        } else if (transitionProgress < 0.7f) {
+            // DUSK - Purple transition
+            float t = (transitionProgress - 0.3f) / 0.4f;
+            skyTopR = 0.15f - t * 0.1f;
+            skyTopG = 0.05f;
+            skyTopB = 0.08f + t * 0.1f;
+            skyBotR = 0.7f * skyPulse - t * 0.4f;
+            skyBotG = 0.25f * skyPulse - t * 0.1f;
+            skyBotB = 0.15f * skyPulse + t * 0.25f;
         } else {
-            // HELL PHASE - Red/crimson sky
-            skyTopR = 0.15f; skyTopG = 0.03f; skyTopB = 0.05f;  // Dark red top
-            skyBotR = 0.7f * skyPulse; skyBotG = 0.2f * skyPulse; skyBotB = 0.1f;  // Bright red bottom
+            // NIGHT - Dark blue (boss phase)
+            float t = (transitionProgress - 0.7f) / 0.3f;
+            skyTopR = 0.05f - t * 0.03f;
+            skyTopG = 0.05f - t * 0.02f;
+            skyTopB = 0.18f - t * 0.06f;
+            skyBotR = 0.3f * skyPulse - t * 0.2f;
+            skyBotG = 0.15f * skyPulse;
+            skyBotB = 0.4f * skyPulse - t * 0.1f;
         }
         
         // =====================================================
-        // HELL SKY BOX - Red/crimson gradient in world space
+        // HELL SKY BOX - Gradient in world space
         // =====================================================
         
         // Upper sky ceiling
@@ -2981,17 +3015,33 @@ public:
         glVertex3f(halfSize, -50.0f, -halfSize);
         glEnd();
         
-        // MOON in the sky - Blue when boss active, blood red otherwise
+        // MOON in the sky - Color changes based on transition progress
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE);
         float moonGlow = sin(levelTime * 0.3f) * 0.15f + 0.85f;
-        if (bossActive) {
-            // Blue electric moon
-            glColor4f(0.3f * moonGlow, 0.5f * moonGlow, 0.95f * moonGlow, 0.9f);
+        
+        // Moon color transitions with the sky
+        float moonR, moonG, moonB;
+        if (transitionProgress < 0.3f) {
+            // Orange/yellow moon at sunset
+            moonR = 1.0f * moonGlow;
+            moonG = 0.6f * moonGlow;
+            moonB = 0.2f * moonGlow;
+        } else if (transitionProgress < 0.7f) {
+            // Transition to blood red
+            float t = (transitionProgress - 0.3f) / 0.4f;
+            moonR = (1.0f - t * 0.1f) * moonGlow;
+            moonG = (0.6f - t * 0.45f) * moonGlow;
+            moonB = (0.2f - t * 0.1f) * moonGlow;
         } else {
-            // Blood red moon
-            glColor4f(0.9f * moonGlow, 0.15f * moonGlow, 0.1f * moonGlow, 0.9f);
+            // Blue electric moon during boss phase
+            float t = (transitionProgress - 0.7f) / 0.3f;
+            moonR = (0.9f - t * 0.6f) * moonGlow;
+            moonG = (0.15f + t * 0.35f) * moonGlow;
+            moonB = (0.1f + t * 0.85f) * moonGlow;
         }
+        
+        glColor4f(moonR, moonG, moonB, 0.9f);
         glPushMatrix();
         glTranslatef(100.0f, 100.0f, -200.0f);
         glutSolidSphere(25.0f, 24, 24);
@@ -3282,13 +3332,45 @@ public:
             glTranslatef(platforms[i].center.x, platforms[i].center.y, platforms[i].center.z);
             
             if (levelID == LEVEL_2_HELL_ARENA) {
-                // Draw textured rocky/lava platform
-                TextureID platTex = TextureManager::isLoaded(TEX_PLATFORM_LAVA) ? TEX_PLATFORM_LAVA : TEX_ROCK;
+                // Different textures for different platform types in hell arena
+                TextureID platTex;
+                float texScale = 0.5f;
+                
+                // Main arena platform (index 0) - large stone texture
+                if (i == 0) {
+                    platTex = TextureManager::isLoaded(TEX_FLOOR_METAL) ? TEX_FLOOR_METAL : TEX_ROCK;
+                    texScale = 0.15f;  // More texture repeats for large platform
+                }
+                // Corner platforms (indices 1-4) - different rocky texture
+                else if (i >= 1 && i <= 4) {
+                    platTex = TextureManager::isLoaded(TEX_WALL_GREY) ? TEX_WALL_GREY : TEX_ROCK;
+                    texScale = 0.4f;
+                }
+                // Boss platform (index 9) - special dark texture
+                else if (i == 9 || i == 10 || i == 11) {
+                    platTex = TextureManager::isLoaded(TEX_PLATFORM_LAVA) ? TEX_PLATFORM_LAVA : TEX_ROCK;
+                    texScale = 0.3f;
+                }
+                // Other platforms - standard rock texture
+                else {
+                    platTex = TextureManager::isLoaded(TEX_ROCK) ? TEX_ROCK : TEX_PLATFORM_LAVA;
+                    texScale = 0.5f;
+                }
+                
                 if (TextureManager::isLoaded(platTex)) {
                     TextureManager::drawTexturedBox(platTex, 0, 0, 0,
-                        platforms[i].size.x, platforms[i].size.y, platforms[i].size.z, 0.5f);
+                        platforms[i].size.x, platforms[i].size.y, platforms[i].size.z, texScale);
                 } else {
-                    LowPolyModels::setColor(0.4f, 0.25f, 0.15f);
+                    // Fallback with different colors based on platform index
+                    if (i == 0) {
+                        LowPolyModels::setColor(0.35f, 0.3f, 0.25f);  // Lighter for main
+                    } else if (i >= 1 && i <= 4) {
+                        LowPolyModels::setColor(0.45f, 0.35f, 0.25f);  // Warmer for corners
+                    } else if (i >= 9 && i <= 11) {
+                        LowPolyModels::setColor(0.25f, 0.15f, 0.1f);  // Darker for boss area
+                    } else {
+                        LowPolyModels::setColor(0.4f, 0.25f, 0.15f);  // Standard rock color
+                    }
                     LowPolyModels::drawPlatform(platforms[i].size.x, platforms[i].size.y, platforms[i].size.z);
                 }
             } else {

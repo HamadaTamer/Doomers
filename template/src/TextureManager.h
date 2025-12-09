@@ -95,8 +95,9 @@ private:
     static GLuint loadTexture(const char* filepath, bool repeat = true) {
         printf("Loading texture: %s\n", filepath);
         
-        // Use SOIL to load and generate mipmaps
-        unsigned int flags = SOIL_FLAG_INVERT_Y | SOIL_FLAG_MIPMAPS;
+        // Use SOIL to load with power-of-2 resizing for compatibility
+        // SOIL_FLAG_POWER_OF_TWO handles non-power-of-2 textures
+        unsigned int flags = SOIL_FLAG_INVERT_Y | SOIL_FLAG_MIPMAPS | SOIL_FLAG_POWER_OF_TWO;
         
         GLuint texID = SOIL_load_OGL_texture(
             filepath,
@@ -330,27 +331,28 @@ public:
         texturesLoaded[TEX_LAVA_TERRAIN_NORMAL] = (textures[TEX_LAVA_TERRAIN_NORMAL] != 0);
         
         // ==================== SKYBOX TEXTURES (TitanMoon) ====================
-        sprintf(filepath, "%sSkyboxes/TitanMoon/front.png", basePath);
+        // Use backslashes for Windows paths
+        sprintf(filepath, "%sSkyboxes\\TitanMoon\\front.png", basePath);
         textures[TEX_SKYBOX_FRONT] = loadTexture(filepath, false);
         texturesLoaded[TEX_SKYBOX_FRONT] = (textures[TEX_SKYBOX_FRONT] != 0);
         
-        sprintf(filepath, "%sSkyboxes/TitanMoon/back.png", basePath);
+        sprintf(filepath, "%sSkyboxes\\TitanMoon\\back.png", basePath);
         textures[TEX_SKYBOX_BACK] = loadTexture(filepath, false);
         texturesLoaded[TEX_SKYBOX_BACK] = (textures[TEX_SKYBOX_BACK] != 0);
         
-        sprintf(filepath, "%sSkyboxes/TitanMoon/left.png", basePath);
+        sprintf(filepath, "%sSkyboxes\\TitanMoon\\left.png", basePath);
         textures[TEX_SKYBOX_LEFT] = loadTexture(filepath, false);
         texturesLoaded[TEX_SKYBOX_LEFT] = (textures[TEX_SKYBOX_LEFT] != 0);
         
-        sprintf(filepath, "%sSkyboxes/TitanMoon/right.png", basePath);
+        sprintf(filepath, "%sSkyboxes\\TitanMoon\\right.png", basePath);
         textures[TEX_SKYBOX_RIGHT] = loadTexture(filepath, false);
         texturesLoaded[TEX_SKYBOX_RIGHT] = (textures[TEX_SKYBOX_RIGHT] != 0);
         
-        sprintf(filepath, "%sSkyboxes/TitanMoon/top.png", basePath);
+        sprintf(filepath, "%sSkyboxes\\TitanMoon\\top.png", basePath);
         textures[TEX_SKYBOX_TOP] = loadTexture(filepath, false);
         texturesLoaded[TEX_SKYBOX_TOP] = (textures[TEX_SKYBOX_TOP] != 0);
         
-        sprintf(filepath, "%sSkyboxes/TitanMoon/bottom.png", basePath);
+        sprintf(filepath, "%sSkyboxes\\TitanMoon\\bottom.png", basePath);
         textures[TEX_SKYBOX_BOTTOM] = loadTexture(filepath, false);
         texturesLoaded[TEX_SKYBOX_BOTTOM] = (textures[TEX_SKYBOX_BOTTOM] != 0);
         
@@ -512,11 +514,17 @@ public:
         glPushMatrix();
         glTranslatef(x, y, z);
         
+        // Save current states
+        GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
+        GLboolean depthTestWasEnabled = glIsEnabled(GL_DEPTH_TEST);
+        GLboolean texture2DWasEnabled = glIsEnabled(GL_TEXTURE_2D);
+        
         // Disable lighting for skybox
         glDisable(GL_LIGHTING);
         glDisable(GL_DEPTH_TEST);
         glDepthMask(GL_FALSE);
         glEnable(GL_TEXTURE_2D);
+        glDisable(GL_BLEND);
         
         glColor3f(1.0f, 1.0f, 1.0f);
         
@@ -576,10 +584,11 @@ public:
         glTexCoord2f(0, 1); glVertex3f(-s, -s, s);
         glEnd();
         
+        // Restore states
         glDepthMask(GL_TRUE);
-        glEnable(GL_DEPTH_TEST);
-        glEnable(GL_LIGHTING);
-        glDisable(GL_TEXTURE_2D);
+        if (depthTestWasEnabled) glEnable(GL_DEPTH_TEST);
+        if (lightingWasEnabled) glEnable(GL_LIGHTING);
+        if (!texture2DWasEnabled) glDisable(GL_TEXTURE_2D);
         
         glPopMatrix();
     }

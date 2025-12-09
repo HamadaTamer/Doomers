@@ -688,11 +688,53 @@ public:
                     glPushMatrix();
                     glRotatef(rotationY, 0, 1, 0);
                     // Scale and position the devil model appropriately
-                    float bossScale = 3.5f;  // Adjust based on model size
-                    // Offset Y to raise the model so feet are on ground (model is centered)
-                    // The model gets centered around its bounding box, so we need to lift it
-                    glTranslatef(0, bossScale * 0.5f, 0);  // Raise by half the model height
-                    ModelLoader::draw(MODEL_DEVIL_BOSS, bossScale);
+                    float bossScale = 6.0f;  // Larger boss for better visibility
+                    // Offset Y significantly to raise the model above the platform
+                    // Model bounding box is normalized, so we lift by scale amount
+                    glTranslatef(0, bossScale * 1.0f, 0);
+                    
+                    // Set up proper material for textured model
+                    GLfloat bossAmbient[] = {0.6f, 0.6f, 0.6f, 1.0f};
+                    GLfloat bossDiffuse[] = {1.0f, 1.0f, 1.0f, 1.0f};
+                    GLfloat bossSpecular[] = {0.2f, 0.2f, 0.2f, 1.0f};
+                    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, bossAmbient);
+                    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, bossDiffuse);
+                    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, bossSpecular);
+                    glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 10.0f);
+                    
+                    // Enable color material for proper texture rendering
+                    glEnable(GL_COLOR_MATERIAL);
+                    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+                    glColor3f(1.0f, 1.0f, 1.0f);
+                    
+                    // Apply rage effect through color tinting
+                    if (isEnraged) {
+                        glColor3f(1.0f, 0.7f, 0.7f);  // Reddish tint when enraged
+                    }
+                    
+                    // Select animation model based on boss state
+                    ModelID bossModelToUse = MODEL_DEVIL_BOSS; // Default idle pose
+                    
+                    if (state == ENEMY_ATTACK) {
+                        // Alternate between kick animations when attacking
+                        int kickType = (int)(animPhase * 2.0f) % 2;
+                        if (kickType == 0) {
+                            bossModelToUse = MODEL_DEVIL_KICK;
+                        } else {
+                            bossModelToUse = MODEL_DEVIL_DROP_KICK;
+                        }
+                    } else if (state == ENEMY_CHASE || state == ENEMY_PATROL) {
+                        // Walking animation when moving
+                        bossModelToUse = MODEL_DEVIL_WALK;
+                    } else if (state == ENEMY_HURT) {
+                        // Use idle pose when hurt (could add hurt animation later)
+                        bossModelToUse = MODEL_DEVIL_BOSS;
+                    }
+                    // ENEMY_IDLE and ENEMY_DEAD use default MODEL_DEVIL_BOSS
+                    
+                    ModelLoader::draw(bossModelToUse, bossScale);
+                    
+                    glDisable(GL_COLOR_MATERIAL);
                     glPopMatrix();
                 } else {
                     // Fallback to procedural boss model with rage effect

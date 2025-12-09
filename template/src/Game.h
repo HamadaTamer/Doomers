@@ -217,7 +217,7 @@ public:
         GAME_LOG("Game::startGame START\n");
         // Stop any lingering win/lose sounds from previous game
         sound.stopWinLoseSound();
-        currentLevelNum = 1;
+        currentLevelNum = 2;
         GAME_LOG("Game::startGame calling loadLevel(1)\n");
         loadLevel(currentLevelNum);
         GAME_LOG("Game::startGame loadLevel done\n");

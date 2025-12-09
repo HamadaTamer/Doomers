@@ -26,7 +26,10 @@ enum ModelID {
     MODEL_AR_GUN,
     MODEL_FLAG_POLE,
     MODEL_LAVA_TERRAIN,
-    MODEL_DEVIL_BOSS,
+    MODEL_DEVIL_BOSS,           // Main devil idle/pose
+    MODEL_DEVIL_WALK,           // Walking animation
+    MODEL_DEVIL_KICK,           // Melee kick attack
+    MODEL_DEVIL_DROP_KICK,      // Drop kick animation
     MODEL_AMMO_MAGAZINE,
     MODEL_COUNT
 };
@@ -214,18 +217,18 @@ private:
                     char fullPath[512];
                     sprintf(fullPath, "%s/%s", baseDir, texPath.C_Str());
                     
-                    // Try to load texture
+                    // Try to load texture with power-of-2 resizing for compatibility
                     result.textureID = SOIL_load_OGL_texture(
                         fullPath,
                         SOIL_LOAD_AUTO,
                         SOIL_CREATE_NEW_ID,
-                        SOIL_FLAG_INVERT_Y
+                        SOIL_FLAG_INVERT_Y | SOIL_FLAG_POWER_OF_TWO | SOIL_FLAG_MIPMAPS
                     );
                     
                     if (result.textureID > 0) {
                         result.hasTexture = true;
                         glBindTexture(GL_TEXTURE_2D, result.textureID);
-                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
                         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
                         printf("  Loaded texture: %s\n", fullPath);
                     } else {
@@ -252,17 +255,26 @@ private:
         }
     }
     
-    static bool loadModel(const char* filepath, Model3D& model, const char* textureOverride = nullptr) {
+    static bool loadModel(const char* filepath, Model3D& model, const char* textureOverride = nullptr, bool invertTextureY = true) {
         printf("Loading model: %s\n", filepath);
         
+        // Check if this is an FBX file - FBX files may need different UV handling
+        bool isFBX = strstr(filepath, ".fbx") != nullptr || strstr(filepath, ".FBX") != nullptr;
+        
         Assimp::Importer importer;
-        const aiScene* scene = importer.ReadFile(filepath,
-            aiProcess_Triangulate |
-            aiProcess_FlipUVs |
+        
+        // FBX files from Mixamo typically don't need UV flipping
+        unsigned int importFlags = aiProcess_Triangulate |
             aiProcess_GenNormals |
             aiProcess_JoinIdenticalVertices |
-            aiProcess_OptimizeMeshes
-        );
+            aiProcess_OptimizeMeshes;
+        
+        // Only flip UVs for non-FBX files (OBJ, etc.)
+        if (!isFBX) {
+            importFlags |= aiProcess_FlipUVs;
+        }
+        
+        const aiScene* scene = importer.ReadFile(filepath, importFlags);
         
         if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
             printf("ERROR: Assimp failed to load model: %s\n", importer.GetErrorString());
@@ -283,23 +295,35 @@ private:
         
         // If texture override specified, apply it to all meshes
         if (textureOverride) {
+            // Use SOIL_FLAG_POWER_OF_TWO to handle non-power-of-2 textures
+            // Also use SOIL_FLAG_MIPMAPS for better quality
+            unsigned int soilFlags = SOIL_FLAG_POWER_OF_TWO | SOIL_FLAG_MIPMAPS;
+            if (invertTextureY) {
+                soilFlags |= SOIL_FLAG_INVERT_Y;
+            }
+            
             GLuint overrideTex = SOIL_load_OGL_texture(
                 textureOverride,
                 SOIL_LOAD_AUTO,
                 SOIL_CREATE_NEW_ID,
-                SOIL_FLAG_INVERT_Y
+                soilFlags
             );
             
             if (overrideTex > 0) {
                 glBindTexture(GL_TEXTURE_2D, overrideTex);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
                 
                 for (auto& mesh : model.meshes) {
                     mesh.textureID = overrideTex;
                     mesh.hasTexture = true;
                 }
                 printf("  Applied override texture: %s\n", textureOverride);
+            } else {
+                printf("  WARNING: Failed to load override texture: %s\n", textureOverride);
+                printf("  SOIL error: %s\n", SOIL_last_result());
             }
         }
         
@@ -355,17 +379,33 @@ public:
         sprintf(texturePath, "%s\\..\\res\\Models3D\\FlagPole\\file13.png", exePath);
         loadModel(modelPath, models[MODEL_FLAG_POLE], texturePath);
         
-        // DISABLED: Lava terrain FBX model causes crash on load
-        // The terrain will be rendered using textured quads instead
-        // sprintf(modelPath, "%s\\..\\res\\Models3D\\free-lava-zone-environment\\source\\TerrainGEN_3Model.fbx", exePath);
-        // sprintf(texturePath, "%s\\..\\res\\Models3D\\free-lava-zone-environment\\textures\\TerrainGEN_3LAVAColor_8bit.png", exePath);
-        // loadModel(modelPath, models[MODEL_LAVA_TERRAIN], texturePath);
-        models[MODEL_LAVA_TERRAIN].loaded = false;  // Mark as not loaded
+        // Load Lava terrain FBX model - with error handling
+        sprintf(modelPath, "%s\\..\\res\\Models3D\\free-lava-zone-environment\\source\\TerrainGEN_3Model.fbx", exePath);
+        sprintf(texturePath, "%s\\..\\res\\Models3D\\free-lava-zone-environment\\textures\\TerrainGEN_3LAVAColor_8bit.png", exePath);
+        if (!loadModel(modelPath, models[MODEL_LAVA_TERRAIN], texturePath)) {
+            printf("WARNING: Lava terrain model failed to load, using textured quads instead\n");
+            models[MODEL_LAVA_TERRAIN].loaded = false;
+        }
         
-        // Load devil/boss model
+        // Load devil/boss model - main pose (try with Y inversion for texture)
         sprintf(modelPath, "%s\\..\\res\\Models3D\\devil\\devil.fbx", exePath);
         sprintf(texturePath, "%s\\..\\res\\Models3D\\devil\\devil.png", exePath);
-        loadModel(modelPath, models[MODEL_DEVIL_BOSS], texturePath);
+        loadModel(modelPath, models[MODEL_DEVIL_BOSS], texturePath, true);
+        
+        // Load devil walking animation
+        sprintf(modelPath, "%s\\..\\res\\Models3D\\devil\\mutant_walking.fbx", exePath);
+        sprintf(texturePath, "%s\\..\\res\\Models3D\\devil\\devil.png", exePath);
+        loadModel(modelPath, models[MODEL_DEVIL_WALK], texturePath, true);
+        
+        // Load devil kick animation
+        sprintf(modelPath, "%s\\..\\res\\Models3D\\devil\\standing_melee_kick.fbx", exePath);
+        sprintf(texturePath, "%s\\..\\res\\Models3D\\devil\\devil.png", exePath);
+        loadModel(modelPath, models[MODEL_DEVIL_KICK], texturePath, true);
+        
+        // Load devil drop kick animation
+        sprintf(modelPath, "%s\\..\\res\\Models3D\\devil\\drop_kick.fbx", exePath);
+        sprintf(texturePath, "%s\\..\\res\\Models3D\\devil\\devil.png", exePath);
+        loadModel(modelPath, models[MODEL_DEVIL_DROP_KICK], texturePath, true);
         
         // Load ammo magazine model
         sprintf(modelPath, "%s\\..\\res\\Models3D\\ak-47-magazine\\source\\ak_47_round.obj", exePath);
