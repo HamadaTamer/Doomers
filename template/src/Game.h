@@ -487,9 +487,27 @@ public:
             muzzleFlashTime -= deltaTime;
         }
         
-        // Check level 2 day/night cycle
+        // Check level 2 day/night cycle - based on enemies killed (matches sky transition)
         if (currentLevel.levelID == LEVEL_2_HELL_ARENA) {
-            float progress = currentLevel.levelTime / currentLevel.maxTime;
+            // Calculate transition progress based on killed enemies
+            int totalRegular = 0;
+            int killedRegular = 0;
+            for (int i = 0; i < currentLevel.numEnemies; i++) {
+                if (currentLevel.enemies[i].type != ENEMY_BOSS) {
+                    totalRegular++;
+                    if (!currentLevel.enemies[i].active || currentLevel.enemies[i].health <= 0) {
+                        killedRegular++;
+                    }
+                }
+            }
+            float progress = (totalRegular > 0) ? (float)killedRegular / (float)totalRegular : 0.0f;
+            
+            // Force night when boss is active
+            bool bossActive = currentLevel.bossEnemyIndex >= 0 && 
+                              currentLevel.bossEnemyIndex < currentLevel.numEnemies &&
+                              currentLevel.enemies[currentLevel.bossEnemyIndex].active;
+            if (bossActive) progress = 1.0f;
+            
             lighting.updateDayNightCycle(progress);
         }
         

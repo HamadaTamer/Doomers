@@ -407,7 +407,7 @@ public:
         sprintf(texturePath, "%s\\..\\res\\Models3D\\devil\\devil.png", exePath);
         loadModel(modelPath, models[MODEL_DEVIL_DROP_KICK], texturePath, true);
         
-        // Load ammo magazine model
+        // Load ammo magazine model (MTL file was missing, now created)
         sprintf(modelPath, "%s\\..\\res\\Models3D\\ak-47-magazine\\source\\ak_47_round.obj", exePath);
         sprintf(texturePath, "%s\\..\\res\\Models3D\\ak-47-magazine\\textures\\ak_47_round_BaseColor.jpeg", exePath);
         loadModel(modelPath, models[MODEL_AMMO_MAGAZINE], texturePath);

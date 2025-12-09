@@ -338,7 +338,7 @@ struct Crate {
                 glRotatef(spinAngle, 0, 1, 0);
                 
                 if (content == MYSTERY_HEALTH) {
-                    // Subtle green glow (no sphere)
+                    // Subtle green glow
                     glDisable(GL_LIGHTING);
                     glEnable(GL_BLEND);
                     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
@@ -352,9 +352,14 @@ struct Crate {
                     glEnd();
                     glDisable(GL_BLEND);
                     glEnable(GL_LIGHTING);
-                    LowPolyModels::drawHealthPack();
+                    // Use 3D model if available, otherwise fallback to procedural
+                    if (ModelLoader::isLoaded(MODEL_HEALTHPACK)) {
+                        ModelLoader::draw(MODEL_HEALTHPACK, 0.4f);
+                    } else {
+                        LowPolyModels::drawHealthPack();
+                    }
                 } else if (content == MYSTERY_AMMO) {
-                    // Subtle yellow glow (no sphere)
+                    // Subtle yellow glow
                     glDisable(GL_LIGHTING);
                     glEnable(GL_BLEND);
                     glBlendFunc(GL_SRC_ALPHA, GL_ONE);
@@ -368,7 +373,12 @@ struct Crate {
                     glEnd();
                     glDisable(GL_BLEND);
                     glEnable(GL_LIGHTING);
-                    LowPolyModels::drawAmmoBox();
+                    // Use 3D model if available, otherwise fallback to procedural
+                    if (ModelLoader::isLoaded(MODEL_AMMO_MAGAZINE)) {
+                        ModelLoader::draw(MODEL_AMMO_MAGAZINE, 0.5f);
+                    } else {
+                        LowPolyModels::drawAmmoBox();
+                    }
                 } else {
                     // Dust puff for empty (no spheres)
                     glDisable(GL_LIGHTING);
@@ -1122,7 +1132,7 @@ public:
         
         // THE DEMON KING BOSS - Starts inactive, spawns after clearing regular enemies
         bossEnemyIndex = numEnemies;
-        enemies[numEnemies].init(ENEMY_BOSS, Vector3(0, 5.0f, 30), Vector3(-5, 5.0f, 30), Vector3(5, 5.0f, 30));
+        enemies[numEnemies].init(ENEMY_BOSS, Vector3(0, 6.5f, 30), Vector3(-5, 6.5f, 30), Vector3(5, 6.5f, 30));
         enemies[numEnemies].active = false; // Boss starts INACTIVE
         numEnemies++;
         
@@ -2742,34 +2752,188 @@ public:
             glPushMatrix();
             glTranslatef(portalPositions[pt][0], portalPositions[pt][1], portalPositions[pt][2]);
             
+            float portalPulse = sin(levelTime * 3.0f + pt * 1.5f) * 0.2f + 0.8f;
+            
+            // ===== TEXTURED STONE FRAME around portal =====
+            glEnable(GL_LIGHTING);
+            glDisable(GL_BLEND);
+            
+            // Draw 8 pillar segments around the portal ring to create a stone frame
+            float frameRadius = 4.5f;
+            float pillarSize = 0.8f;
+            for (int seg = 0; seg < 8; seg++) {
+                float angle = seg * 45.0f * 3.14159f / 180.0f;
+                float px = cos(angle) * frameRadius;
+                float py = sin(angle) * frameRadius;
+                
+                glPushMatrix();
+                glTranslatef(px, py, 0);
+                
+                // Draw textured pillar segment
+                if (TextureManager::isLoaded(TEX_ROCK)) {
+                    TextureManager::drawTexturedBox(TEX_ROCK, 0, 0, 0, pillarSize, pillarSize, pillarSize * 1.5f, 0.3f);
+                } else {
+                    LowPolyModels::setColor(0.25f, 0.15f, 0.2f);  // Dark purple-ish stone
+                    LowPolyModels::drawBox(pillarSize, pillarSize, pillarSize * 1.5f);
+                }
+                
+                // Glowing rune on each pillar
+                glDisable(GL_LIGHTING);
+                glEnable(GL_BLEND);
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+                glColor4f(0.7f * portalPulse, 0.1f * portalPulse, 0.9f * portalPulse, 0.8f);
+                glTranslatef(0, 0, pillarSize * 0.76f);
+                glutSolidSphere(0.15f, 6, 6);
+                glDisable(GL_BLEND);
+                glEnable(GL_LIGHTING);
+                
+                glPopMatrix();
+            }
+            
+            // ===== PORTAL ENERGY EFFECTS =====
             glDisable(GL_LIGHTING);
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE);
             
-            // Portal ring
-            float portalPulse = sin(levelTime * 3.0f + pt * 1.5f) * 0.2f + 0.8f;
+            // Outer portal ring glow
             glColor4f(0.6f * portalPulse, 0.0f, 0.8f * portalPulse, 0.7f);
-            
-            glRotatef(90, 1, 0, 0);
             glRotatef(levelTime * 30.0f + pt * 45.0f, 0, 0, 1);
-            glutSolidTorus(0.3f, 4.0f, 12, 24);
+            glutSolidTorus(0.25f, 3.8f, 12, 24);
             
-            // Inner swirl
+            // Inner swirling energy vortex
             glColor4f(0.9f * portalPulse, 0.2f * portalPulse, 0.5f * portalPulse, 0.5f);
             for (int r = 0; r < 3; r++) {
                 glRotatef(levelTime * 60.0f + r * 120.0f, 0, 0, 1);
                 glBegin(GL_TRIANGLES);
-                glVertex3f(0, 0, 0);
-                glVertex3f(3.0f, 0, 0);
-                glVertex3f(2.0f, 1.5f, 0);
+                glVertex3f(0, 0, 0.1f);
+                glVertex3f(3.0f, 0, 0.1f);
+                glVertex3f(2.0f, 1.5f, 0.1f);
                 glEnd();
             }
+            
+            // Center energy sphere
+            glColor4f(0.8f * portalPulse, 0.3f * portalPulse, 1.0f * portalPulse, 0.4f);
+            glutSolidSphere(1.5f * portalPulse, 12, 12);
             
             glDisable(GL_BLEND);
             glEnable(GL_LIGHTING);
             
             glPopMatrix();
         }
+        
+        // =====================================================
+        // BOSS THRONE - Demonic throne at boss spawn point (0, 4.5, 30)
+        // =====================================================
+        glPushMatrix();
+        glTranslatef(0, 6.0f, 30);  // Boss platform is at Y=4.5, throne sits above it
+        
+        float thronePulse = sin(levelTime * 2.0f) * 0.15f + 0.85f;
+        
+        // Main throne back (tall slab)
+        glEnable(GL_LIGHTING);
+        if (TextureManager::isLoaded(TEX_ROCK)) {
+            TextureManager::drawTexturedBox(TEX_ROCK, 0, 2.0f, 2.0f, 4.0f, 6.0f, 1.0f, 0.3f);
+        } else {
+            LowPolyModels::setColor(0.15f, 0.1f, 0.12f);
+            LowPolyModels::drawBox(4.0f, 6.0f, 1.0f);
+        }
+        
+        // Throne seat
+        if (TextureManager::isLoaded(TEX_ROCK)) {
+            TextureManager::drawTexturedBox(TEX_ROCK, 0, 0.3f, 0, 5.0f, 0.6f, 3.0f, 0.4f);
+        } else {
+            LowPolyModels::setColor(0.12f, 0.08f, 0.1f);
+            glPushMatrix();
+            glTranslatef(0, 0.3f, 0);
+            LowPolyModels::drawBox(5.0f, 0.6f, 3.0f);
+            glPopMatrix();
+        }
+        
+        // Armrests
+        if (TextureManager::isLoaded(TEX_ROCK)) {
+            TextureManager::drawTexturedBox(TEX_ROCK, -2.2f, 0.8f, 0.5f, 0.6f, 1.6f, 2.0f, 0.3f);
+            TextureManager::drawTexturedBox(TEX_ROCK, 2.2f, 0.8f, 0.5f, 0.6f, 1.6f, 2.0f, 0.3f);
+        } else {
+            LowPolyModels::setColor(0.15f, 0.1f, 0.12f);
+            glPushMatrix();
+            glTranslatef(-2.2f, 0.8f, 0.5f);
+            LowPolyModels::drawBox(0.6f, 1.6f, 2.0f);
+            glPopMatrix();
+            glPushMatrix();
+            glTranslatef(2.2f, 0.8f, 0.5f);
+            LowPolyModels::drawBox(0.6f, 1.6f, 2.0f);
+            glPopMatrix();
+        }
+        
+        // Demonic horns on throne back
+        glDisable(GL_LIGHTING);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        
+        // Left horn
+        glPushMatrix();
+        glTranslatef(-1.5f, 5.5f, 2.0f);
+        glRotatef(-30, 0, 0, 1);
+        glRotatef(15, 1, 0, 0);
+        glColor4f(0.2f, 0.1f, 0.15f, 1.0f);
+        GLUquadric* hornQuad = gluNewQuadric();
+        gluCylinder(hornQuad, 0.4f, 0.05f, 3.0f, 8, 4);
+        glPopMatrix();
+        
+        // Right horn
+        glPushMatrix();
+        glTranslatef(1.5f, 5.5f, 2.0f);
+        glRotatef(30, 0, 0, 1);
+        glRotatef(15, 1, 0, 0);
+        glColor4f(0.2f, 0.1f, 0.15f, 1.0f);
+        gluCylinder(hornQuad, 0.4f, 0.05f, 3.0f, 8, 4);
+        gluDeleteQuadric(hornQuad);
+        glPopMatrix();
+        
+        // Glowing runes on throne
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        glColor4f(0.8f * thronePulse, 0.1f * thronePulse, 0.2f * thronePulse, 0.9f);
+        
+        // Rune circles on throne back
+        for (int i = 0; i < 3; i++) {
+            glPushMatrix();
+            glTranslatef(0, 1.5f + i * 1.5f, 2.6f);
+            glutSolidSphere(0.2f * thronePulse, 8, 8);
+            glPopMatrix();
+        }
+        
+        // Runes on armrests
+        glPushMatrix();
+        glTranslatef(-2.2f, 1.6f, 0.5f);
+        glutSolidSphere(0.15f * thronePulse, 6, 6);
+        glPopMatrix();
+        glPushMatrix();
+        glTranslatef(2.2f, 1.6f, 0.5f);
+        glutSolidSphere(0.15f * thronePulse, 6, 6);
+        glPopMatrix();
+        
+        // Summoning circle on ground below throne
+        glColor4f(0.6f * thronePulse, 0.0f, 0.3f * thronePulse, 0.6f);
+        glPushMatrix();
+        glTranslatef(0, -0.3f, -1.0f);
+        glRotatef(90, 1, 0, 0);
+        glRotatef(levelTime * 15.0f, 0, 0, 1);
+        glutSolidTorus(0.15f, 4.0f, 8, 24);
+        glPopMatrix();
+        
+        // Inner summoning ring
+        glColor4f(0.9f * thronePulse, 0.2f * thronePulse, 0.4f * thronePulse, 0.5f);
+        glPushMatrix();
+        glTranslatef(0, -0.25f, -1.0f);
+        glRotatef(90, 1, 0, 0);
+        glRotatef(-levelTime * 25.0f, 0, 0, 1);
+        glutSolidTorus(0.1f, 2.5f, 6, 18);
+        glPopMatrix();
+        
+        glDisable(GL_BLEND);
+        glEnable(GL_LIGHTING);
+        
+        glPopMatrix();
         
         // =====================================================
         // FLOATING RUNES - Mysterious symbols in the air

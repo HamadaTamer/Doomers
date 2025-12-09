@@ -195,62 +195,84 @@ public:
         if (progress > 1.0f) progress = 1.0f;
         
         // Enhanced day-night transition for hell arena
-        // Progress 0.0 = Sunset (orange/red sky)
+        // Progress 0.0 = Sunset (bright orange/red sky)
         // Progress 0.3 = Dusk (dark red/purple)
-        // Progress 0.6 = Early night (purple/blue)
-        // Progress 1.0 = Deep night (dark blue)
+        // Progress 0.7 = Early night (purple/blue)
+        // Progress 1.0 = Deep night / Boss phase (dark with lava glow)
         
         float ambientR, ambientG, ambientB;
         float lightR, lightG, lightB;
+        float lightIntensity;
         
         if (progress < 0.3f) {
-            // Sunset - warm orange light
+            // Sunset - BRIGHT warm orange light (like golden hour)
             float t = progress / 0.3f;
-            ambientR = 0.35f - t * 0.15f;  // 0.35 -> 0.2
-            ambientG = 0.15f - t * 0.08f;  // 0.15 -> 0.07
-            ambientB = 0.08f + t * 0.05f;  // 0.08 -> 0.13
+            ambientR = 0.6f - t * 0.2f;    // 0.6 -> 0.4 (bright!)
+            ambientG = 0.35f - t * 0.15f;  // 0.35 -> 0.2
+            ambientB = 0.15f + t * 0.05f;  // 0.15 -> 0.2
             
-            lightR = 1.0f - t * 0.3f;      // 1.0 -> 0.7
-            lightG = 0.5f - t * 0.25f;     // 0.5 -> 0.25
-            lightB = 0.2f + t * 0.1f;      // 0.2 -> 0.3
-        } else if (progress < 0.6f) {
-            // Dusk to early night - purple tones
-            float t = (progress - 0.3f) / 0.3f;
-            ambientR = 0.2f - t * 0.1f;    // 0.2 -> 0.1
-            ambientG = 0.07f - t * 0.02f;  // 0.07 -> 0.05
-            ambientB = 0.13f + t * 0.07f;  // 0.13 -> 0.2
+            lightR = 1.2f - t * 0.3f;      // 1.2 -> 0.9 (very bright sun)
+            lightG = 0.8f - t * 0.35f;     // 0.8 -> 0.45
+            lightB = 0.3f + t * 0.1f;      // 0.3 -> 0.4
+            lightIntensity = 1.0f - t * 0.2f;
+        } else if (progress < 0.7f) {
+            // Dusk to early night - purple/orange tones getting darker
+            float t = (progress - 0.3f) / 0.4f;
+            ambientR = 0.4f - t * 0.2f;    // 0.4 -> 0.2
+            ambientG = 0.2f - t * 0.12f;   // 0.2 -> 0.08
+            ambientB = 0.2f + t * 0.1f;    // 0.2 -> 0.3
             
-            lightR = 0.7f - t * 0.35f;     // 0.7 -> 0.35
-            lightG = 0.25f - t * 0.1f;     // 0.25 -> 0.15
-            lightB = 0.3f + t * 0.15f;     // 0.3 -> 0.45
+            lightR = 0.9f - t * 0.5f;      // 0.9 -> 0.4
+            lightG = 0.45f - t * 0.25f;    // 0.45 -> 0.2
+            lightB = 0.4f + t * 0.1f;      // 0.4 -> 0.5
+            lightIntensity = 0.8f - t * 0.3f;
         } else {
-            // Night - dark blue with lava glow
-            float t = (progress - 0.6f) / 0.4f;
-            ambientR = 0.1f + t * 0.05f;   // 0.1 -> 0.15 (lava influence)
-            ambientG = 0.05f;
-            ambientB = 0.2f - t * 0.08f;   // 0.2 -> 0.12
+            // Night/Boss phase - dark blue with lava glow from below
+            float t = (progress - 0.7f) / 0.3f;
+            ambientR = 0.2f + t * 0.1f;    // 0.2 -> 0.3 (lava influence)
+            ambientG = 0.08f + t * 0.02f;  // 0.08 -> 0.1
+            ambientB = 0.3f - t * 0.15f;   // 0.3 -> 0.15
             
-            lightR = 0.35f - t * 0.15f;    // 0.35 -> 0.2
-            lightG = 0.15f - t * 0.1f;     // 0.15 -> 0.05
-            lightB = 0.45f - t * 0.2f;     // 0.45 -> 0.25
+            lightR = 0.4f - t * 0.15f;     // 0.4 -> 0.25
+            lightG = 0.2f - t * 0.1f;      // 0.2 -> 0.1
+            lightB = 0.5f - t * 0.25f;     // 0.5 -> 0.25
+            lightIntensity = 0.5f - t * 0.2f;
         }
         
         float globalAmbient[] = {ambientR, ambientG, ambientB, 1.0f};
         glLightModelfv(GL_LIGHT_MODEL_AMBIENT, globalAmbient);
         
-        // Directional "sky" light - simulates sun/moon
-        ambientLight.setColor(lightR, lightG, lightB);
+        // Directional "sun/moon" light from above - illuminates entire arena
+        ambientLight.position = Vector3(50, 100, -50);  // High up, angled
+        ambientLight.setColor(lightR * lightIntensity, lightG * lightIntensity, lightB * lightIntensity);
+        ambientLight.linearAtt = 0.0f;    // No distance falloff for sun
+        ambientLight.quadraticAtt = 0.0f;
         ambientLight.enabled = true;
         
-        // Add lava glow effect to ambient during night
-        if (progress > 0.5f) {
-            float lavaInfluence = (progress - 0.5f) * 0.4f;
-            // Subtle orange underglow from lava
-            emergencyLights[0].position = Vector3(0, -5, 0);
-            emergencyLights[0].setColor(0.8f * lavaInfluence, 0.3f * lavaInfluence, 0.05f * lavaInfluence);
-            emergencyLights[0].linearAtt = 0.01f;
-            emergencyLights[0].quadraticAtt = 0.002f;
+        // Add lava underglow effect during darker phases
+        if (progress > 0.3f) {
+            float lavaInfluence = (progress - 0.3f) * 0.6f;
+            if (lavaInfluence > 0.5f) lavaInfluence = 0.5f;
+            
+            // Lava glow from below - warm orange light
+            emergencyLights[0].position = Vector3(0, -2, 0);
+            emergencyLights[0].setColor(1.0f * lavaInfluence, 0.4f * lavaInfluence, 0.1f * lavaInfluence);
+            emergencyLights[0].linearAtt = 0.005f;
+            emergencyLights[0].quadraticAtt = 0.001f;
             emergencyLights[0].enabled = true;
+            
+            // Additional lava lights at corners
+            emergencyLights[1].position = Vector3(-30, 0, -30);
+            emergencyLights[1].setColor(0.7f * lavaInfluence, 0.25f * lavaInfluence, 0.05f * lavaInfluence);
+            emergencyLights[1].enabled = true;
+            
+            emergencyLights[2].position = Vector3(30, 0, 30);
+            emergencyLights[2].setColor(0.7f * lavaInfluence, 0.25f * lavaInfluence, 0.05f * lavaInfluence);
+            emergencyLights[2].enabled = true;
+        } else {
+            emergencyLights[0].enabled = false;
+            emergencyLights[1].enabled = false;
+            emergencyLights[2].enabled = false;
         }
     }
     

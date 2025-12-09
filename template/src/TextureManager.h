@@ -11,6 +11,11 @@
 #include <string.h>
 #include "../Dependencies/soil/include/SOIL.h"
 
+// Define GL_CLAMP_TO_EDGE if not available (OpenGL 1.2+ constant)
+#ifndef GL_CLAMP_TO_EDGE
+#define GL_CLAMP_TO_EDGE 0x812F
+#endif
+
 // Texture IDs for all game textures
 enum TextureID {
     // Floor/Ground textures
@@ -539,6 +544,13 @@ public:
         glColor3f(1.0f, 1.0f, 1.0f);
         
         float s = size / 2;
+        
+        // Set texture parameters to eliminate seams
+        for (int i = TEX_SKYBOX_FRONT; i <= TEX_SKYBOX_BOTTOM; i++) {
+            glBindTexture(GL_TEXTURE_2D, textures[i]);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        }
         
         // Front (+Z)
         glBindTexture(GL_TEXTURE_2D, textures[TEX_SKYBOX_FRONT]);

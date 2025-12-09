@@ -368,8 +368,44 @@ public:
             verticalVelocity -= 30.0f * deltaTime; // Gravity
             position.y += verticalVelocity * deltaTime;
             
-            // Ground check
-            float groundY = 0.5f + hoverHeight; // Boss hovers slightly
+            // Platform collision check - boss should land on platforms
+            // Check against known Level 2 platform heights
+            float platformY = -10.0f; // Default to below lava
+            
+            // Main arena floor (Y=1.5, size 35x35 at center)
+            if (position.x >= -35 && position.x <= 35 && position.z >= -35 && position.z <= 35) {
+                platformY = 1.5f + 0.5f; // Platform top + half height
+            }
+            
+            // Corner platforms (Y=3.0, size 8x8)
+            if ((position.x >= -28 && position.x <= -12 && position.z >= -28 && position.z <= -12) ||
+                (position.x >= 12 && position.x <= 28 && position.z >= -28 && position.z <= -12) ||
+                (position.x >= -28 && position.x <= -12 && position.z >= 12 && position.z <= 28) ||
+                (position.x >= 12 && position.x <= 28 && position.z >= 12 && position.z <= 28)) {
+                platformY = 3.0f + 0.5f;
+            }
+            
+            // Boss platform (Y=4.5, size 15x10 at Z=30)
+            if (position.x >= -15 && position.x <= 15 && position.z >= 20 && position.z <= 40) {
+                platformY = 4.5f + 0.75f;
+            }
+            
+            // Steps to boss platform
+            if (position.x >= -10 && position.x <= 10 && position.z >= 17 && position.z <= 27) {
+                platformY = 2.5f + 0.4f;
+            }
+            if (position.x >= -12 && position.x <= 12 && position.z >= 21 && position.z <= 31) {
+                platformY = 3.5f + 0.4f;
+            }
+            
+            // Side walkways (Y=2.0)
+            if ((position.x >= -35 && position.x <= -25 && position.z >= -20 && position.z <= 20) ||
+                (position.x >= 25 && position.x <= 35 && position.z >= -20 && position.z <= 20)) {
+                platformY = 2.0f + 0.3f;
+            }
+            
+            // Ground check against platform or lava floor
+            float groundY = platformY + hoverHeight;
             if (position.y < groundY) {
                 position.y = groundY;
                 verticalVelocity = 0;
@@ -713,24 +749,26 @@ public:
                     }
                     
                     // Select animation model based on boss state
-                    ModelID bossModelToUse = MODEL_DEVIL_BOSS; // Default idle pose
+                    ModelID bossModelToUse = MODEL_DEVIL_WALK; // Default to walking animation
                     
                     if (state == ENEMY_ATTACK) {
                         // Alternate between kick animations when attacking
                         int kickType = (int)(animPhase * 2.0f) % 2;
-                        if (kickType == 0) {
+                        if (kickType == 0 && ModelLoader::isLoaded(MODEL_DEVIL_KICK)) {
                             bossModelToUse = MODEL_DEVIL_KICK;
-                        } else {
+                        } else if (ModelLoader::isLoaded(MODEL_DEVIL_DROP_KICK)) {
                             bossModelToUse = MODEL_DEVIL_DROP_KICK;
                         }
-                    } else if (state == ENEMY_CHASE || state == ENEMY_PATROL) {
-                        // Walking animation when moving
-                        bossModelToUse = MODEL_DEVIL_WALK;
-                    } else if (state == ENEMY_HURT) {
-                        // Use idle pose when hurt (could add hurt animation later)
+                    } else if (state == ENEMY_IDLE || state == ENEMY_HURT || state == ENEMY_DEAD) {
+                        // Use idle pose for non-moving states
                         bossModelToUse = MODEL_DEVIL_BOSS;
                     }
-                    // ENEMY_IDLE and ENEMY_DEAD use default MODEL_DEVIL_BOSS
+                    // ENEMY_CHASE and ENEMY_PATROL use walking animation (default)
+                    
+                    // Fallback to idle if walking not loaded
+                    if (!ModelLoader::isLoaded(bossModelToUse)) {
+                        bossModelToUse = MODEL_DEVIL_BOSS;
+                    }
                     
                     ModelLoader::draw(bossModelToUse, bossScale);
                     
