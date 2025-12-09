@@ -2523,6 +2523,8 @@ public:
         glEnable(GL_DEPTH_TEST);
         glDepthMask(GL_TRUE);
         glDisable(GL_LIGHTING);
+        glDisable(GL_FOG);  // Disable fog for lava - we want full brightness
+        glDisable(GL_CULL_FACE);  // Disable culling so floor is visible from above
         
         float time = levelTime;
         float mainPulse = sin(time * 1.5f) * 0.1f + 0.9f;
@@ -2595,6 +2597,9 @@ public:
             glVertex3f(-halfSize * 3.0f, lavaHeight, halfSize * 3.0f);
             glEnd();
         }
+        
+        // Re-enable culling for other elements
+        glEnable(GL_CULL_FACE);
         
         // =====================================================
         // LAVA GRID OVERLAY - Wave animation
@@ -2800,6 +2805,7 @@ public:
         
         glDisable(GL_BLEND);
         glEnable(GL_LIGHTING);
+        glEnable(GL_FOG);  // Re-enable fog for other level elements
         
         glPopMatrix();
     }
@@ -2834,8 +2840,9 @@ public:
         
         // Try to use TitanMoon textured skybox first
         if (TextureManager::isLoaded(TEX_SKYBOX_FRONT)) {
-            // Draw the textured skybox centered on player (Y should be at player height, not 50)
-            TextureManager::drawSkybox(lastPlayerPos.x, lastPlayerPos.y, lastPlayerPos.z, 500.0f);
+            // Draw the textured skybox centered on player
+            // Size must be smaller than far plane (200.0f) - use 180.0f for safety
+            TextureManager::drawSkybox(lastPlayerPos.x, lastPlayerPos.y, lastPlayerPos.z, 180.0f);
             
             // =====================================================
             // GRACEFUL DAY-NIGHT FILTER TRANSITION
@@ -2919,11 +2926,12 @@ public:
         // Move sky to player position so it surrounds them
         glTranslatef(lastPlayerPos.x, 0, lastPlayerPos.z);
         
-        float halfSize = 300.0f;
+        float halfSize = 90.0f;  // Size that fits within far plane
         
-        // Disable lighting and depth for sky - sky is always behind everything
+        // Disable lighting, depth and fog for sky - sky is always behind everything
         glDisable(GL_LIGHTING);
         glDisable(GL_DEPTH_TEST);
+        glDisable(GL_FOG);
         glDepthMask(GL_FALSE);
         
         float skyPulse = sin(levelTime * 0.5f) * 0.1f + 0.9f;
@@ -3048,10 +3056,11 @@ public:
         glPopMatrix();
         glDisable(GL_BLEND);
         
-        // Re-enable depth test and lighting
+        // Re-enable depth test, lighting and fog
         glDepthMask(GL_TRUE);
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_LIGHTING);
+        glEnable(GL_FOG);
         
         glPopMatrix();
     }

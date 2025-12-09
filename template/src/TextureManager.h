@@ -96,7 +96,6 @@ private:
         printf("Loading texture: %s\n", filepath);
         
         // Use SOIL to load with power-of-2 resizing for compatibility
-        // SOIL_FLAG_POWER_OF_TWO handles non-power-of-2 textures
         unsigned int flags = SOIL_FLAG_INVERT_Y | SOIL_FLAG_MIPMAPS | SOIL_FLAG_POWER_OF_TWO;
         
         GLuint texID = SOIL_load_OGL_texture(
@@ -176,6 +175,7 @@ public:
         sprintf(filepath, "%sLava-4.png", basePath);
         textures[TEX_LAVA] = loadTexture(filepath);
         texturesLoaded[TEX_LAVA] = (textures[TEX_LAVA] != 0);
+        printf("Lava texture loaded: %s (ID: %d)\n", texturesLoaded[TEX_LAVA] ? "YES" : "NO", textures[TEX_LAVA]);
         
         sprintf(filepath, "%slava-effect.png", basePath);
         textures[TEX_LAVA_GLOW] = loadTexture(filepath);
@@ -332,9 +332,13 @@ public:
         
         // ==================== SKYBOX TEXTURES (TitanMoon) ====================
         // Use backslashes for Windows paths
+        printf("=== Loading Skybox Textures ===\n");
+        
         sprintf(filepath, "%sSkyboxes\\TitanMoon\\front.png", basePath);
+        printf("Skybox front path: %s\n", filepath);
         textures[TEX_SKYBOX_FRONT] = loadTexture(filepath, false);
         texturesLoaded[TEX_SKYBOX_FRONT] = (textures[TEX_SKYBOX_FRONT] != 0);
+        printf("Skybox front loaded: %s (ID: %d)\n", texturesLoaded[TEX_SKYBOX_FRONT] ? "YES" : "NO", textures[TEX_SKYBOX_FRONT]);
         
         sprintf(filepath, "%sSkyboxes\\TitanMoon\\back.png", basePath);
         textures[TEX_SKYBOX_BACK] = loadTexture(filepath, false);
@@ -355,6 +359,8 @@ public:
         sprintf(filepath, "%sSkyboxes\\TitanMoon\\bottom.png", basePath);
         textures[TEX_SKYBOX_BOTTOM] = loadTexture(filepath, false);
         texturesLoaded[TEX_SKYBOX_BOTTOM] = (textures[TEX_SKYBOX_BOTTOM] != 0);
+        
+        printf("=== Skybox loading complete ===\n");
         
         initialized = true;
         
@@ -518,10 +524,14 @@ public:
         GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
         GLboolean depthTestWasEnabled = glIsEnabled(GL_DEPTH_TEST);
         GLboolean texture2DWasEnabled = glIsEnabled(GL_TEXTURE_2D);
+        GLboolean fogWasEnabled = glIsEnabled(GL_FOG);
+        GLboolean cullFaceWasEnabled = glIsEnabled(GL_CULL_FACE);
         
-        // Disable lighting for skybox
+        // Disable lighting, fog, and culling for skybox
         glDisable(GL_LIGHTING);
         glDisable(GL_DEPTH_TEST);
+        glDisable(GL_FOG);
+        glDisable(GL_CULL_FACE);
         glDepthMask(GL_FALSE);
         glEnable(GL_TEXTURE_2D);
         glDisable(GL_BLEND);
@@ -588,6 +598,8 @@ public:
         glDepthMask(GL_TRUE);
         if (depthTestWasEnabled) glEnable(GL_DEPTH_TEST);
         if (lightingWasEnabled) glEnable(GL_LIGHTING);
+        if (fogWasEnabled) glEnable(GL_FOG);
+        if (cullFaceWasEnabled) glEnable(GL_CULL_FACE);
         if (!texture2DWasEnabled) glDisable(GL_TEXTURE_2D);
         
         glPopMatrix();
