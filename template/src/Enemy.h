@@ -719,17 +719,14 @@ public:
                 LowPolyModels::drawDemon(rotationY, animPhase, attackPhase);
                 break;
             case ENEMY_BOSS:
-                // Try to use the devil 3D model if loaded
+                // Use devil 3D model - switch between different FBX files based on state
                 if (ModelLoader::isLoaded(MODEL_DEVIL_BOSS)) {
                     glPushMatrix();
                     glRotatef(rotationY, 0, 1, 0);
-                    // Scale and position the devil model appropriately
-                    float bossScale = 6.0f;  // Larger boss for better visibility
-                    // Offset Y significantly to raise the model above the platform
-                    // Model bounding box is normalized, so we lift by scale amount
-                    glTranslatef(0, bossScale * 1.0f, 0);
                     
-                    // Set up proper material for textured model
+                    float bossScale = 4.0f;
+                    
+                    // Material setup
                     GLfloat bossAmbient[] = {0.6f, 0.6f, 0.6f, 1.0f};
                     GLfloat bossDiffuse[] = {1.0f, 1.0f, 1.0f, 1.0f};
                     GLfloat bossSpecular[] = {0.2f, 0.2f, 0.2f, 1.0f};
@@ -738,39 +735,34 @@ public:
                     glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, bossSpecular);
                     glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 10.0f);
                     
-                    // Enable color material for proper texture rendering
                     glEnable(GL_COLOR_MATERIAL);
                     glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
                     glColor3f(1.0f, 1.0f, 1.0f);
                     
-                    // Apply rage effect through color tinting
                     if (isEnraged) {
-                        glColor3f(1.0f, 0.7f, 0.7f);  // Reddish tint when enraged
+                        glColor3f(1.0f, 0.7f, 0.7f);
                     }
                     
-                    // Select animation model based on boss state
-                    ModelID bossModelToUse = MODEL_DEVIL_WALK; // Default to walking animation
+                    // Switch FBX model based on current state for animation
+                    ModelID bossModelToUse = MODEL_DEVIL_BOSS;
                     
                     if (state == ENEMY_ATTACK) {
-                        // Alternate between kick animations when attacking
-                        int kickType = (int)(animPhase * 2.0f) % 2;
-                        if (kickType == 0 && ModelLoader::isLoaded(MODEL_DEVIL_KICK)) {
+                        // Use kick model when attacking
+                        if (ModelLoader::isLoaded(MODEL_DEVIL_KICK)) {
                             bossModelToUse = MODEL_DEVIL_KICK;
                         } else if (ModelLoader::isLoaded(MODEL_DEVIL_DROP_KICK)) {
                             bossModelToUse = MODEL_DEVIL_DROP_KICK;
                         }
-                    } else if (state == ENEMY_IDLE || state == ENEMY_HURT || state == ENEMY_DEAD) {
-                        // Use idle pose for non-moving states
-                        bossModelToUse = MODEL_DEVIL_BOSS;
+                    } else if (state == ENEMY_CHASE || state == ENEMY_PATROL) {
+                        // Use walking model when moving
+                        if (ModelLoader::isLoaded(MODEL_DEVIL_WALK)) {
+                            bossModelToUse = MODEL_DEVIL_WALK;
+                        }
                     }
-                    // ENEMY_CHASE and ENEMY_PATROL use walking animation (default)
+                    // IDLE, HURT, DEAD = base devil.fbx model
                     
-                    // Fallback to idle if walking not loaded
-                    if (!ModelLoader::isLoaded(bossModelToUse)) {
-                        bossModelToUse = MODEL_DEVIL_BOSS;
-                    }
-                    
-                    ModelLoader::draw(bossModelToUse, bossScale);
+                    // Use drawGrounded so boss feet are on the platform (not sinking)
+                    ModelLoader::drawGrounded(bossModelToUse, bossScale);
                     
                     glDisable(GL_COLOR_MATERIAL);
                     glPopMatrix();

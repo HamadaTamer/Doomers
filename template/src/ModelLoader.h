@@ -444,6 +444,31 @@ public:
         models[id].draw(scale, centerModel);
     }
     
+    // Draw model grounded (feet on Y=0) instead of centered
+    // This is for character models where we want feet touching the ground
+    static void drawGrounded(ModelID id, float scale = 1.0f) {
+        if (!initialized) init();
+        if (id < 0 || id >= MODEL_COUNT) return;
+        if (!models[id].loaded) return;
+        
+        glPushMatrix();
+        
+        // Apply scaling
+        float finalScale = models[id].scale * scale;
+        glScalef(finalScale, finalScale, finalScale);
+        
+        // Center X and Z, but use minY for Y (so model stands on ground)
+        // This places the model's feet at Y=0
+        glTranslatef(-models[id].centerX, -models[id].minY, -models[id].centerZ);
+        
+        // Draw all meshes
+        for (const auto& mesh : models[id].meshes) {
+            mesh.draw();
+        }
+        
+        glPopMatrix();
+    }
+    
     // Draw model at specific position with rotation
     static void drawAt(ModelID id, float x, float y, float z, 
                        float scale = 1.0f, float rotY = 0.0f, float rotX = 0.0f, float rotZ = 0.0f) {

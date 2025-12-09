@@ -834,36 +834,36 @@ public:
         DEBUG_LOG("Level::loadLevel1 adding collectibles\n");
         numCollectibles = 0;
         
-        // Health packs - near combat zones
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-28, 0, -28), 25);  // Start area
+        // Health packs - in open areas of each zone
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-25, 0.5f, -25), 25);  // Start area (SW corner)
         numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-20, 0, 5), 25);   // Research
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-18, 0.5f, 15), 25);   // Research area (NW)
         numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(10, 0, -15), 30);  // Containment
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(15, 0.5f, -18), 30);  // Containment (SE)
         numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(0, 0, 15), 25);    // Central
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(0, 0.5f, 0), 25);    // Central hub
         numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(20, 0, 30), 50);   // Near boss
-        numCollectibles++;
-        
-        // Ammo boxes - scattered throughout
-        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(-25, 0, -20), 20);
-        numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(-15, 0, 0), 20);
-        numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(5, 0, -25), 25);
-        numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(25, 0, 0), 25);
-        numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(10, 0, 25), 30);
-        numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(-5, 0, 30), 20);
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(18, 0.5f, 18), 50);   // Reactor area (NE)
         numCollectibles++;
         
-        // Keycards
-        collectibles[numCollectibles].init(COLLECT_KEYCARD, Vector3(-20, 0, 25), 1);  // Blue keycard - in research lab
+        // Ammo boxes - scattered in open spaces
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(-22, 0.5f, -15), 20);  // Security corridor
         numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_KEYCARD, Vector3(28, 0, -25), 2);  // Red keycard - in containment
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(-12, 0.5f, 10), 20);   // Near research
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(12, 0.5f, -22), 25);   // Containment entrance
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(22, 0.5f, 8), 25);    // Reactor corridor
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(8, 0.5f, 22), 30);    // North corridor
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(-8, 0.5f, 25), 20);   // Research exit
+        numCollectibles++;
+        
+        // Keycards - in clearly reachable locations
+        collectibles[numCollectibles].init(COLLECT_KEYCARD, Vector3(-22, 0.5f, 18), 1);  // Blue keycard - research lab
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_KEYCARD, Vector3(22, 0.5f, -18), 2);  // Red keycard - containment
         numCollectibles++;
         DEBUG_LOG("Level::loadLevel1 collectibles done\n");
         
@@ -1131,58 +1131,62 @@ public:
         numEnemies++;
         
         // THE DEMON KING BOSS - Starts inactive, spawns after clearing regular enemies
+        // Platform center Y=4.5, half-height=0.75, top surface = 5.25
+        // Boss needs to stand ON the platform
         bossEnemyIndex = numEnemies;
-        enemies[numEnemies].init(ENEMY_BOSS, Vector3(0, 6.5f, 30), Vector3(-5, 6.5f, 30), Vector3(5, 6.5f, 30));
+        enemies[numEnemies].init(ENEMY_BOSS, Vector3(0, 5.25f, 30), Vector3(-5, 5.25f, 30), Vector3(5, 5.25f, 30));
         enemies[numEnemies].active = false; // Boss starts INACTIVE
         numEnemies++;
         
         // ===================================================================
-        // COLLECTIBLES - Health and Ammo strategically placed
+        // COLLECTIBLES - Health and Ammo strategically placed ON PLATFORMS
         // ===================================================================
         numCollectibles = 0;
         
-        // Starting supplies (near spawn on main platform)
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-5, 2.0f, -20), 30);
+        // Starting supplies (on main platform center, Y=1.5 + 0.5 offset = 2.0)
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-8, 2.5f, -15), 30);
         numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(5, 2.0f, -20), 40);
-        numCollectibles++;
-        
-        // Corner platform pickups (on corner platforms at Y=3.0)
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-20, 3.5f, -20), 35);
-        numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(20, 3.5f, -20), 35);
-        numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-20, 3.5f, 20), 35);
-        numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(20, 3.5f, 20), 35);
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(8, 2.5f, -15), 40);
         numCollectibles++;
         
-        // Arena center pickups (on main platform at Y=1.5)
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(0, 2.0f, 0), 50);
+        // Corner platform pickups (corner platforms at Y=3.0, so Y=3.5 for items)
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-20, 4.0f, -20), 35);  // SW corner
         numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(0, 2.0f, -8), 50);
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(20, 4.0f, -20), 35);    // SE corner
         numCollectibles++;
-        
-        // Boss area supplies (for the boss fight at Y=4.5)
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-8, 5.0f, 30), 75);
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-20, 4.0f, 20), 35);   // NW corner
         numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(8, 5.0f, 30), 75);
-        numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(0, 5.0f, 35), 60);
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(20, 4.0f, 20), 35);     // NE corner
         numCollectibles++;
         
-        // Powerups (on side walkways at Y=2.0)
-        collectibles[numCollectibles].init(COLLECT_DAMAGE_BOOST, Vector3(-30, 2.5f, -10), 12);
+        // Main arena center pickups (main platform Y=1.5, items at Y=2.5)
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(0, 2.5f, 5), 50);
         numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_SPEED_BOOST, Vector3(30, 2.5f, 10), 12);
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(-10, 2.5f, 0), 50);
         numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_INVINCIBILITY, Vector3(0, 3.0f, 22), 10); // Before boss
+        collectibles[numCollectibles].init(COLLECT_AMMO, Vector3(10, 2.5f, 0), 50);
         numCollectibles++;
         
-        // SHIELD - Critical for boss fight! Gives 100 shield points (on corner platforms)
-        collectibles[numCollectibles].init(COLLECT_SHIELD, Vector3(-20, 3.5f, 20), 100);
+        // Boss area supplies (boss platform Y=4.5, items at Y=5.5)
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(-6, 6.0f, 30), 75);
         numCollectibles++;
-        collectibles[numCollectibles].init(COLLECT_SHIELD, Vector3(20, 3.5f, -20), 100);
+        collectibles[numCollectibles].init(COLLECT_HEALTH, Vector3(6, 6.0f, 30), 75);
+        numCollectibles++;
+        
+        // Side walkway powerups (walkways at Y=2.0, items at Y=2.5)
+        collectibles[numCollectibles].init(COLLECT_DAMAGE_BOOST, Vector3(-30, 3.0f, -5), 12);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_SPEED_BOOST, Vector3(30, 3.0f, 5), 12);
+        numCollectibles++;
+        
+        // Step platforms before boss (steps at Y=2.5 and Y=3.5)
+        collectibles[numCollectibles].init(COLLECT_INVINCIBILITY, Vector3(0, 4.0f, 24), 10);
+        numCollectibles++;
+        
+        // SHIELD - on corner platforms for boss fight prep
+        collectibles[numCollectibles].init(COLLECT_SHIELD, Vector3(-18, 4.0f, 18), 100);
+        numCollectibles++;
+        collectibles[numCollectibles].init(COLLECT_SHIELD, Vector3(18, 4.0f, -18), 100);
         numCollectibles++;
         
         // ===================================================================
@@ -2741,79 +2745,47 @@ public:
         }
         
         // =====================================================
-        // HELL PORTALS - Demonic gateways with swirling energy
+        // CORNER FIRE BRAZIERS - Instead of purple portals
         // =====================================================
-        float portalPositions[][3] = {
-            {-40, 5.0f, -40}, {40, 5.0f, -40},
-            {-45, 6.0f, 40}, {45, 6.0f, 40},
+        float brazierPositions[][3] = {
+            {-40, 2.0f, -40}, {40, 2.0f, -40},
+            {-40, 2.0f, 40}, {40, 2.0f, 40},
         };
         
-        for (int pt = 0; pt < 4; pt++) {
+        for (int br = 0; br < 4; br++) {
             glPushMatrix();
-            glTranslatef(portalPositions[pt][0], portalPositions[pt][1], portalPositions[pt][2]);
+            glTranslatef(brazierPositions[br][0], brazierPositions[br][1], brazierPositions[br][2]);
             
-            float portalPulse = sin(levelTime * 3.0f + pt * 1.5f) * 0.2f + 0.8f;
+            float flamePulse = sin(levelTime * 5.0f + br * 1.2f) * 0.3f + 0.7f;
             
-            // ===== TEXTURED STONE FRAME around portal =====
+            // Stone brazier base
             glEnable(GL_LIGHTING);
             glDisable(GL_BLEND);
-            
-            // Draw 8 pillar segments around the portal ring to create a stone frame
-            float frameRadius = 4.5f;
-            float pillarSize = 0.8f;
-            for (int seg = 0; seg < 8; seg++) {
-                float angle = seg * 45.0f * 3.14159f / 180.0f;
-                float px = cos(angle) * frameRadius;
-                float py = sin(angle) * frameRadius;
-                
-                glPushMatrix();
-                glTranslatef(px, py, 0);
-                
-                // Draw textured pillar segment
-                if (TextureManager::isLoaded(TEX_ROCK)) {
-                    TextureManager::drawTexturedBox(TEX_ROCK, 0, 0, 0, pillarSize, pillarSize, pillarSize * 1.5f, 0.3f);
-                } else {
-                    LowPolyModels::setColor(0.25f, 0.15f, 0.2f);  // Dark purple-ish stone
-                    LowPolyModels::drawBox(pillarSize, pillarSize, pillarSize * 1.5f);
-                }
-                
-                // Glowing rune on each pillar
-                glDisable(GL_LIGHTING);
-                glEnable(GL_BLEND);
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-                glColor4f(0.7f * portalPulse, 0.1f * portalPulse, 0.9f * portalPulse, 0.8f);
-                glTranslatef(0, 0, pillarSize * 0.76f);
-                glutSolidSphere(0.15f, 6, 6);
-                glDisable(GL_BLEND);
-                glEnable(GL_LIGHTING);
-                
-                glPopMatrix();
+            if (TextureManager::isLoaded(TEX_ROCK)) {
+                TextureManager::drawTexturedBox(TEX_ROCK, 0, 0, 0, 2.0f, 1.5f, 2.0f, 0.4f);
+                TextureManager::drawTexturedBox(TEX_ROCK, 0, 1.5f, 0, 2.5f, 0.3f, 2.5f, 0.3f);
+            } else {
+                LowPolyModels::setColor(0.3f, 0.25f, 0.2f);
+                LowPolyModels::drawBox(2.0f, 1.5f, 2.0f);
+                glTranslatef(0, 1.5f, 0);
+                LowPolyModels::drawBox(2.5f, 0.3f, 2.5f);
             }
             
-            // ===== PORTAL ENERGY EFFECTS =====
+            // Fire effect on top
             glDisable(GL_LIGHTING);
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE);
             
-            // Outer portal ring glow
-            glColor4f(0.6f * portalPulse, 0.0f, 0.8f * portalPulse, 0.7f);
-            glRotatef(levelTime * 30.0f + pt * 45.0f, 0, 0, 1);
-            glutSolidTorus(0.25f, 3.8f, 12, 24);
-            
-            // Inner swirling energy vortex
-            glColor4f(0.9f * portalPulse, 0.2f * portalPulse, 0.5f * portalPulse, 0.5f);
-            for (int r = 0; r < 3; r++) {
-                glRotatef(levelTime * 60.0f + r * 120.0f, 0, 0, 1);
-                glBegin(GL_TRIANGLES);
-                glVertex3f(0, 0, 0.1f);
-                glVertex3f(3.0f, 0, 0.1f);
-                glVertex3f(2.0f, 1.5f, 0.1f);
-                glEnd();
+            // Orange-red flames
+            for (int f = 0; f < 3; f++) {
+                float fOff = f * 0.4f;
+                float fSize = (1.2f - f * 0.3f) * flamePulse;
+                glColor4f(1.0f, 0.4f + f * 0.2f, 0.1f, 0.7f - f * 0.15f);
+                glPushMatrix();
+                glTranslatef(sin(levelTime * 3 + f) * 0.3f, 2.0f + fOff, cos(levelTime * 2 + f) * 0.3f);
+                glutSolidSphere(fSize, 8, 8);
+                glPopMatrix();
             }
-            
-            // Center energy sphere
-            glColor4f(0.8f * portalPulse, 0.3f * portalPulse, 1.0f * portalPulse, 0.4f);
-            glutSolidSphere(1.5f * portalPulse, 12, 12);
             
             glDisable(GL_BLEND);
             glEnable(GL_LIGHTING);
@@ -2936,39 +2908,48 @@ public:
         glPopMatrix();
         
         // =====================================================
-        // FLOATING RUNES - Mysterious symbols in the air
+        // FLOATING FIRE ORBS - Mystical floating flames around the arena
         // =====================================================
-        glDisable(GL_LIGHTING);
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-        
-        for (int r = 0; r < 20; r++) {
-            float runeX = sin(r * 0.628f) * 50.0f;
-            float runeZ = cos(r * 0.628f) * 50.0f;
-            float runeY = 8.0f + sin(levelTime + r * 0.5f) * 2.0f;
+        for (int r = 0; r < 12; r++) {
+            float orbX = sin(r * 0.524f) * 55.0f;
+            float orbZ = cos(r * 0.524f) * 55.0f;
+            float orbY = 10.0f + sin(levelTime * 0.8f + r * 0.5f) * 3.0f;
             
-            float runeGlow = sin(levelTime * 2.5f + r * 0.3f) * 0.3f + 0.7f;
-            glColor4f(1.0f * runeGlow, 0.3f * runeGlow, 0.0f, 0.6f);
+            float orbPulse = sin(levelTime * 3.0f + r * 0.7f) * 0.25f + 0.75f;
             
             glPushMatrix();
-            glTranslatef(runeX, runeY, runeZ);
-            glRotatef(levelTime * 20.0f + r * 18.0f, 0, 1, 0);
+            glTranslatef(orbX, orbY, orbZ);
             
-            // Draw rune as a simple quad with X pattern
-            glBegin(GL_LINES);
-            glVertex3f(-0.5f, -0.5f, 0);
-            glVertex3f(0.5f, 0.5f, 0);
-            glVertex3f(-0.5f, 0.5f, 0);
-            glVertex3f(0.5f, -0.5f, 0);
-            glVertex3f(0, -0.7f, 0);
-            glVertex3f(0, 0.7f, 0);
-            glEnd();
+            // Core flame orb - solid glowing sphere
+            glEnable(GL_LIGHTING);
+            GLfloat orbEmissive[] = {0.9f * orbPulse, 0.3f * orbPulse, 0.05f, 1.0f};
+            GLfloat orbDiffuse[] = {1.0f, 0.5f, 0.1f, 1.0f};
+            glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, orbEmissive);
+            glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, orbDiffuse);
+            glutSolidSphere(1.2f * orbPulse, 12, 12);
+            
+            // Clear emissive
+            GLfloat noEmissive[] = {0, 0, 0, 1};
+            glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, noEmissive);
+            
+            // Outer glow effect
+            glDisable(GL_LIGHTING);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+            
+            // Multiple glow layers
+            for (int g = 0; g < 3; g++) {
+                float glowSize = 1.8f + g * 0.8f;
+                float glowAlpha = (0.4f - g * 0.12f) * orbPulse;
+                glColor4f(1.0f, 0.4f - g * 0.1f, 0.05f, glowAlpha);
+                glutSolidSphere(glowSize, 8, 8);
+            }
+            
+            glDisable(GL_BLEND);
+            glEnable(GL_LIGHTING);
             
             glPopMatrix();
         }
-        
-        glDisable(GL_BLEND);
-        glEnable(GL_LIGHTING);
         glEnable(GL_FOG);  // Re-enable fog for other level elements
         
         glPopMatrix();
