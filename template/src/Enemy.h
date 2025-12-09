@@ -77,6 +77,11 @@ public:
     bool hasGravity;               // Whether boss falls from platforms
     float verticalVelocity;        // For gravity
     
+    // Kick attack tracking
+    bool isKicking;                // Currently performing kick animation
+    float kickTimer;               // Time into kick animation
+    bool kickDamageDealt;          // Whether this kick already dealt damage
+    
     int health;
     int maxHealth;
     int damage;
@@ -124,6 +129,11 @@ public:
         wingFlapPhase = 0.0f;
         hasGravity = true;
         verticalVelocity = 0.0f;
+        
+        // Kick attack reset
+        isKicking = false;
+        kickTimer = 0.0f;
+        kickDamageDealt = false;
         
         for (int i = 0; i < MAX_BOSS_PROJECTILES; i++) {
             projectiles[i].active = false;
@@ -322,7 +332,8 @@ public:
         
         // BOSS has different state logic - always aggressive!
         if (type == ENEMY_BOSS) {
-            if (distToPlayer < ENEMY_ATTACK_RANGE * 1.5f) {
+            // Boss attacks from further away so player can see the kick animation
+            if (distToPlayer < ENEMY_ATTACK_RANGE * 3.0f) {
                 state = ENEMY_ATTACK;
             } else {
                 state = ENEMY_CHASE;
@@ -355,6 +366,26 @@ public:
                 velocity.x = 0;
                 velocity.z = 0;
                 lookAt(playerPos);
+                
+                // BOSS kick attack logic
+                if (type == ENEMY_BOSS) {
+                    if (!isKicking && attackCooldown <= 0) {
+                        // Start a new kick
+                        isKicking = true;
+                        kickTimer = 0.0f;
+                        kickDamageDealt = false;
+                    }
+                    
+                    if (isKicking) {
+                        kickTimer += deltaTime;
+                        // Kick animation is 20 frames at 24fps = ~0.83 seconds
+                        float kickDuration = 20.0f / 24.0f;
+                        if (kickTimer >= kickDuration) {
+                            isKicking = false;
+                            attackCooldown = 1.0f;  // Cooldown before next kick
+                        }
+                    }
+                }
                 break;
             default:
                 break;
@@ -625,6 +656,47 @@ public:
         attackCooldown = 1.5f;
     }
     
+    // Check if boss kick hits the player - returns true if damage should be dealt
+    // The kick hitbox is in front of the boss during the middle of the animation
+    bool checkKickHit(const Vector3& playerPos, float playerRadius = 1.0f) {
+        if (type != ENEMY_BOSS || !isKicking || kickDamageDealt) {
+            return false;
+        }
+        
+        // Kick deals damage around frames 8-14 (out of 20) - the actual kick swing
+        float kickDuration = 20.0f / 24.0f;  // ~0.83 seconds total
+        float kickProgress = kickTimer / kickDuration;  // 0 to 1
+        
+        // Damage window is 40% to 70% of the animation (the kick swing)
+        if (kickProgress < 0.4f || kickProgress > 0.7f) {
+            return false;
+        }
+        
+        // Calculate kick hitbox position - in front of boss based on rotation
+        float kickReach = 6.5f;  // How far the kick reaches (matches attack range)
+        float radians = DEG2RAD(rotationY);
+        Vector3 kickPos = position;
+        kickPos.x += sinf(radians) * kickReach;
+        kickPos.z += cosf(radians) * kickReach;
+        kickPos.y += 1.5f;  // Kick height (leg level)
+        
+        // Check collision with player
+        float dist = kickPos.distanceTo(playerPos);
+        float kickRadius = 2.0f;  // Kick hitbox radius (slightly smaller for precision)
+        
+        if (dist < kickRadius + playerRadius) {
+            kickDamageDealt = true;  // Only deal damage once per kick
+            return true;
+        }
+        
+        return false;
+    }
+    
+    // Get the kick damage (boss melee damage)
+    int getKickDamage() const {
+        return damage;  // Uses boss damage value from config
+    }
+    
     void takeDamage(int dmg) {
         if (state == ENEMY_DEAD) return;
         
@@ -719,57 +791,48 @@ public:
                 LowPolyModels::drawDemon(rotationY, animPhase, attackPhase);
                 break;
             case ENEMY_BOSS:
-                // Use devil 3D model - switch between different FBX files based on state
-                if (ModelLoader::isLoaded(MODEL_DEVIL_BOSS)) {
-                    glPushMatrix();
-                    glRotatef(rotationY, 0, 1, 0);
-                    
-                    float bossScale = 4.0f;
-                    
-                    // Material setup
-                    GLfloat bossAmbient[] = {0.6f, 0.6f, 0.6f, 1.0f};
-                    GLfloat bossDiffuse[] = {1.0f, 1.0f, 1.0f, 1.0f};
-                    GLfloat bossSpecular[] = {0.2f, 0.2f, 0.2f, 1.0f};
-                    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, bossAmbient);
-                    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, bossDiffuse);
-                    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, bossSpecular);
-                    glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 10.0f);
-                    
-                    glEnable(GL_COLOR_MATERIAL);
-                    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-                    glColor3f(1.0f, 1.0f, 1.0f);
-                    
-                    if (isEnraged) {
-                        glColor3f(1.0f, 0.7f, 0.7f);
-                    }
-                    
-                    // Switch FBX model based on current state for animation
-                    ModelID bossModelToUse = MODEL_DEVIL_BOSS;
-                    
-                    if (state == ENEMY_ATTACK) {
-                        // Use kick model when attacking
-                        if (ModelLoader::isLoaded(MODEL_DEVIL_KICK)) {
-                            bossModelToUse = MODEL_DEVIL_KICK;
-                        } else if (ModelLoader::isLoaded(MODEL_DEVIL_DROP_KICK)) {
-                            bossModelToUse = MODEL_DEVIL_DROP_KICK;
-                        }
-                    } else if (state == ENEMY_CHASE || state == ENEMY_PATROL) {
-                        // Use walking model when moving
-                        if (ModelLoader::isLoaded(MODEL_DEVIL_WALK)) {
-                            bossModelToUse = MODEL_DEVIL_WALK;
-                        }
-                    }
-                    // IDLE, HURT, DEAD = base devil.fbx model
-                    
-                    // Use drawGrounded so boss feet are on the platform (not sinking)
-                    ModelLoader::drawGrounded(bossModelToUse, bossScale);
-                    
-                    glDisable(GL_COLOR_MATERIAL);
-                    glPopMatrix();
+                // Use devil 3D model with baked frame animation
+                glPushMatrix();
+                glRotatef(rotationY, 0, 1, 0);
+                
+                float bossScale = 4.0f;
+                
+                // Material setup
+                GLfloat bossAmbient[] = {0.6f, 0.6f, 0.6f, 1.0f};
+                GLfloat bossDiffuse[] = {1.0f, 1.0f, 1.0f, 1.0f};
+                GLfloat bossSpecular[] = {0.2f, 0.2f, 0.2f, 1.0f};
+                glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, bossAmbient);
+                glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, bossDiffuse);
+                glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, bossSpecular);
+                glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 10.0f);
+                
+                glEnable(GL_COLOR_MATERIAL);
+                glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+                
+                // Color tint based on state
+                if (isEnraged) {
+                    glColor3f(1.0f, 0.4f, 0.4f);  // Strong red when enraged
+                } else if (state == ENEMY_ATTACK || isKicking) {
+                    glColor3f(1.0f, 0.7f, 0.7f);  // Light red for attack
                 } else {
-                    // Fallback to procedural boss model with rage effect
+                    glColor3f(1.0f, 1.0f, 1.0f);  // Normal color
+                }
+                
+                // Choose animation based on state
+                if (isKicking && AnimationLoader::isLoaded(ANIM_KICK)) {
+                    // Play kick animation
+                    AnimationLoader::drawAnimated(ANIM_KICK, kickTimer, bossScale);
+                } else if (AnimationLoader::isLoaded(ANIM_WALK)) {
+                    // Use animPhase for walk animation timing
+                    float animTime = animPhase * 0.05f;
+                    AnimationLoader::drawAnimated(ANIM_WALK, animTime, bossScale);
+                } else {
+                    // Fallback to procedural boss model only
                     LowPolyModels::drawBoss(rotationY, animPhase, (float)health, (float)maxHealth, isEnraged);
                 }
+                
+                glDisable(GL_COLOR_MATERIAL);
+                glPopMatrix();
                 break;
         }
         

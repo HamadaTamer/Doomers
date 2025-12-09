@@ -500,10 +500,210 @@ public:
         
         initialized = false;
     }
+    
+    // Public method to load model into external Model3D (for animation frames)
+    static bool loadModelDirect(const char* filepath, Model3D& model, 
+                                 const char* textureOverride = nullptr, 
+                                 bool invertTextureY = true) {
+        return loadModel(filepath, model, textureOverride, invertTextureY);
+    }
 };
 
 // Static member definitions
 Model3D ModelLoader::models[MODEL_COUNT];
 bool ModelLoader::initialized = false;
+
+// ============================================================================
+// FRAME-BASED ANIMATION SYSTEM
+// Loads baked animation frames from separate FBX files
+// ============================================================================
+
+#define MAX_ANIM_FRAMES 32
+
+enum AnimationType {
+    ANIM_IDLE = 0,
+    ANIM_WALK,
+    ANIM_KICK,
+    ANIM_COUNT
+};
+
+struct FrameAnimation {
+    Model3D frames[MAX_ANIM_FRAMES];
+    int frameCount;
+    float fps;
+    bool loaded;
+    bool loop;
+    
+    // Reference values from first frame - used for consistent positioning
+    float refScale;
+    float refCenterX, refCenterZ;
+    float refMinY;
+    
+    FrameAnimation() : frameCount(0), fps(24.0f), loaded(false), loop(true),
+                       refScale(1.0f), refCenterX(0), refCenterZ(0), refMinY(0) {}
+};
+
+class AnimationLoader {
+private:
+    static FrameAnimation animations[ANIM_COUNT];
+    static bool initialized;
+    
+    static bool loadAnimationFrames(AnimationType anim, const char* basePath, 
+                                     const char* prefix, const char* texturePath,
+                                     int frameNumbers[], int count) {
+        if (count > MAX_ANIM_FRAMES) count = MAX_ANIM_FRAMES;
+        
+        animations[anim].frameCount = 0;
+        
+        char framePath[512];
+        for (int i = 0; i < count; i++) {
+            sprintf(framePath, "%s\\%s_%03d.fbx", basePath, prefix, frameNumbers[i]);
+            
+            if (ModelLoader::loadModelDirect(framePath, animations[anim].frames[i], texturePath, true)) {
+                // Store reference values from first successfully loaded frame
+                if (animations[anim].frameCount == 0) {
+                    Model3D& ref = animations[anim].frames[i];
+                    animations[anim].refScale = ref.scale;
+                    animations[anim].refCenterX = ref.centerX;
+                    animations[anim].refCenterZ = ref.centerZ;
+                    animations[anim].refMinY = ref.minY;
+                }
+                animations[anim].frameCount++;
+            } else {
+                printf("  Failed to load frame: %s\n", framePath);
+            }
+        }
+        
+        animations[anim].loaded = (animations[anim].frameCount > 0);
+        printf("  Loaded %d/%d frames for animation %d\n", 
+               animations[anim].frameCount, count, anim);
+        return animations[anim].loaded;
+    }
+    
+public:
+    static void init() {
+        if (initialized) return;
+        
+        printf("=== AnimationLoader: Loading baked animation frames ===\n");
+        
+        char exePath[512];
+        GetModuleFileNameA(NULL, exePath, 512);
+        char* lastSlash = strrchr(exePath, '\\');
+        if (lastSlash) *lastSlash = '\0';
+        
+        char bakedPath[512], texturePath[512];
+        sprintf(bakedPath, "%s\\..\\res\\Models3D\\devil\\baked", exePath);
+        sprintf(texturePath, "%s\\..\\res\\Models3D\\devil\\devil.png", exePath);
+        
+        // Check if baked folder exists
+        DWORD attrib = GetFileAttributesA(bakedPath);
+        if (attrib == INVALID_FILE_ATTRIBUTES || !(attrib & FILE_ATTRIBUTE_DIRECTORY)) {
+            printf("  Baked animations folder not found: %s\n", bakedPath);
+            printf("  Falling back to static models\n");
+            initialized = true;
+            return;
+        }
+        
+        // Load WALK animation frames - sequential frames for smooth animation
+        // We have walk_001 to walk_250, load 30 frames (every 8th) for performance
+        printf("  Loading WALK animation (30 frames)...\n");
+        int walkFrames[] = {
+            1, 9, 17, 25, 33, 41, 49, 57, 65, 73,
+            81, 89, 97, 105, 113, 121, 129, 137, 145, 153,
+            161, 169, 177, 185, 193, 201, 209, 217, 225, 233
+        };
+        loadAnimationFrames(ANIM_WALK, bakedPath, "walk", texturePath, walkFrames, 30);
+        animations[ANIM_WALK].fps = 30.0f;  // 30fps animation playback
+        
+        // Load KICK animation frames - for attack
+        // Frames: 1, 5, 9, 13... up to 249 (every 4th frame = 63 frames total)
+        // We'll load 20 frames for a snappy kick
+        printf("  Loading KICK animation (20 frames)...\n");
+        int kickFrames[] = {
+            1, 13, 25, 37, 49, 61, 73, 85, 97, 109,
+            121, 133, 145, 157, 169, 181, 193, 205, 217, 229
+        };
+        loadAnimationFrames(ANIM_KICK, bakedPath, "kick", texturePath, kickFrames, 20);
+        animations[ANIM_KICK].fps = 24.0f;  // Faster for snappy attack
+        animations[ANIM_KICK].loop = false;  // Don't loop - play once
+        
+        // No idle animation
+        animations[ANIM_IDLE].loaded = false;
+        
+        initialized = true;
+        printf("=== AnimationLoader: Initialization complete ===\n");
+    }
+    
+    static bool isLoaded(AnimationType anim) {
+        if (!initialized) return false;  // Don't lazy init - must call init() at startup
+        if (anim < 0 || anim >= ANIM_COUNT) return false;
+        return animations[anim].loaded && animations[anim].frameCount > 0;
+    }
+    
+    static int getFrameCount(AnimationType anim) {
+        if (!initialized) return 0;
+        if (anim < 0 || anim >= ANIM_COUNT) return 0;
+        return animations[anim].frameCount;
+    }
+    
+    // Get frame index based on time
+    static int getFrameIndex(AnimationType anim, float time) {
+        if (!initialized) return 0;
+        if (anim < 0 || anim >= ANIM_COUNT) return 0;
+        if (!animations[anim].loaded || animations[anim].frameCount == 0) return 0;
+        
+        float fps = animations[anim].fps;
+        int frameCount = animations[anim].frameCount;
+        int frame = (int)(time * fps) % frameCount;
+        
+        if (!animations[anim].loop && frame >= frameCount - 1) {
+            frame = frameCount - 1;  // Hold on last frame
+        }
+        
+        return frame;
+    }
+    
+    // Draw animation frame grounded
+    static void drawGrounded(AnimationType anim, int frameIndex, float scale = 1.0f) {
+        if (!initialized) return;
+        if (anim < 0 || anim >= ANIM_COUNT) return;
+        if (!animations[anim].loaded || animations[anim].frameCount == 0) return;
+        
+        // Clamp frame index
+        if (frameIndex < 0) frameIndex = 0;
+        if (frameIndex >= animations[anim].frameCount) {
+            frameIndex = animations[anim].frameCount - 1;
+        }
+        
+        Model3D& model = animations[anim].frames[frameIndex];
+        if (!model.loaded) return;
+        
+        glPushMatrix();
+        
+        // Use REFERENCE scale and center from first frame to prevent shaking
+        FrameAnimation& animData = animations[anim];
+        float finalScale = animData.refScale * scale;
+        glScalef(finalScale, finalScale, finalScale);
+        
+        // Ground the model using REFERENCE values (feet at Y=0)
+        glTranslatef(-animData.refCenterX, -animData.refMinY, -animData.refCenterZ);
+        
+        for (const auto& mesh : model.meshes) {
+            mesh.draw();
+        }
+        
+        glPopMatrix();
+    }
+    
+    // Draw animation based on time (automatically calculates frame)
+    static void drawAnimated(AnimationType anim, float time, float scale = 1.0f) {
+        int frameIndex = getFrameIndex(anim, time);
+        drawGrounded(anim, frameIndex, scale);
+    }
+};
+
+// Static member definitions for AnimationLoader
+FrameAnimation AnimationLoader::animations[ANIM_COUNT];
+bool AnimationLoader::initialized = false;
 
 #endif // MODEL_LOADER_H

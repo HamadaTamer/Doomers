@@ -163,6 +163,8 @@ public:
         TextureManager::init();
         GAME_LOG("Initializing ModelLoader...");
         ModelLoader::init();
+        GAME_LOG("Initializing AnimationLoader...");
+        AnimationLoader::init();
         
         // ============================================
         // GPU PERFORMANCE OPTIMIZATIONS
@@ -440,7 +442,24 @@ public:
         for (int i = 0; i < currentLevel.numEnemies; i++) {
             if (!currentLevel.enemies[i].isActiveAttacker) continue;
             
-            if (currentLevel.enemies[i].canAttack()) {
+            // BOSS KICK ATTACK - check separately from regular attack
+            if (currentLevel.enemies[i].type == ENEMY_BOSS) {
+                if (currentLevel.enemies[i].checkKickHit(player.position, 1.2f)) {
+                    // Boss kick hit the player!
+                    Vector3 attackDir = player.position - currentLevel.enemies[i].position;
+                    attackDir.y = 0;
+                    player.takeDamage(currentLevel.enemies[i].getKickDamage(), attackDir);
+                    
+                    // Camera shake for big impact!
+                    player.applyCameraShake(0.8f, 0.4f);
+                    
+                    // Play kick impact sound (shockwave for powerful hit)
+                    sound.playSound(Sounds::SFX_SHOCKWAVE);
+                    sound.playSound(Sounds::SFX_PLAYER_HURT);
+                }
+            }
+            // Regular enemy melee attack
+            else if (currentLevel.enemies[i].canAttack()) {
                 float dist = currentLevel.enemies[i].position.distanceTo(player.position);
                 if (dist < ENEMY_ATTACK_RANGE) {
                     // Calculate knockback direction (from enemy to player)
@@ -1442,6 +1461,13 @@ public:
             float shakeX = ((float)rand() / RAND_MAX - 0.5f) * transitionShake * 2.0f;
             float shakeY = ((float)rand() / RAND_MAX - 0.5f) * transitionShake * 2.0f;
             glTranslatef(shakeX, shakeY, 0);
+        }
+        
+        // Apply player damage camera shake (boss kick, etc)
+        float playerShakeX = player.getCameraShakeX();
+        float playerShakeY = player.getCameraShakeY();
+        if (playerShakeX != 0 || playerShakeY != 0) {
+            glTranslatef(playerShakeX, playerShakeY, 0);
         }
         
         // Apply camera

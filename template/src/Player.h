@@ -76,6 +76,12 @@ public:
     Vector3 knockbackVelocity;
     float knockbackTimer;
     
+    // Camera shake (for big hits like boss kick)
+    float cameraShakeIntensity;
+    float cameraShakeTime;
+    float cameraShakeOffsetX;
+    float cameraShakeOffsetY;
+    
     // Input state
     bool moveForward, moveBackward, moveLeft, moveRight;
     bool wantJump, wantSprint;
@@ -147,6 +153,12 @@ public:
         
         knockbackVelocity = Vector3(0, 0, 0);
         knockbackTimer = 0.0f;
+        
+        // Camera shake reset
+        cameraShakeIntensity = 0.0f;
+        cameraShakeTime = 0.0f;
+        cameraShakeOffsetX = 0.0f;
+        cameraShakeOffsetY = 0.0f;
         
         moveForward = moveBackward = moveLeft = moveRight = false;
         wantJump = wantSprint = false;
@@ -428,6 +440,19 @@ public:
             if (damageFlash < 0) damageFlash = 0;
         }
         
+        // Update camera shake
+        if (cameraShakeTime > 0) {
+            cameraShakeTime -= deltaTime;
+            float shakeAmount = cameraShakeIntensity * (cameraShakeTime / 0.5f);  // Fade out
+            cameraShakeOffsetX = ((rand() % 200) / 100.0f - 1.0f) * shakeAmount;
+            cameraShakeOffsetY = ((rand() % 200) / 100.0f - 1.0f) * shakeAmount;
+            if (cameraShakeTime <= 0) {
+                cameraShakeTime = 0;
+                cameraShakeOffsetX = 0;
+                cameraShakeOffsetY = 0;
+            }
+        }
+        
         // Update invincibility
         if (invincibilityTime > 0) {
             invincibilityTime -= deltaTime;
@@ -550,6 +575,16 @@ public:
             if (health < 0) health = 0;
         }
     }
+    
+    // Apply camera shake effect (for big impacts like boss kick)
+    void applyCameraShake(float intensity, float duration = 0.5f) {
+        cameraShakeIntensity = intensity;
+        cameraShakeTime = duration;
+    }
+    
+    // Get camera shake offsets for rendering
+    float getCameraShakeX() const { return cameraShakeOffsetX; }
+    float getCameraShakeY() const { return cameraShakeOffsetY; }
     
     // Lava damage with invincibility frames - player can jump to recover
     void takeLavaDamage(int damage) {

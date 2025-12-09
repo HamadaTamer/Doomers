@@ -177,13 +177,28 @@ public:
             flashlight.enabled = true;
             
         } else if (levelID == LEVEL_2_HELL_ARENA) {
-            // Outdoor hell arena with sunset/night transition
-            updateDayNightCycle(0.0f);
+            // Outdoor hell arena - BRIGHT for third person visibility
+            // Set a bright global ambient for good platform visibility
+            float globalAmbient[] = {0.6f, 0.5f, 0.4f, 1.0f};  // Warm bright ambient
+            glLightModelfv(GL_LIGHT_MODEL_AMBIENT, globalAmbient);
             
-            // Disable indoor lights
+            // Set up ceiling lights for arena illumination
+            emergencyLights[0].position = Vector3(-20, 15, -20);
+            emergencyLights[1].position = Vector3(20, 15, -20);
+            emergencyLights[2].position = Vector3(-20, 15, 20);
+            emergencyLights[3].position = Vector3(20, 15, 20);
+            
             for (int i = 0; i < 4; i++) {
-                emergencyLights[i].enabled = false;
+                emergencyLights[i].setColor(1.0f, 0.9f, 0.7f);  // Warm bright lights
+                emergencyLights[i].enabled = true;
             }
+            
+            // Sun/ambient light for overall scene
+            ambientLight.position = Vector3(50, 100, -50);
+            ambientLight.setColor(1.0f, 0.9f, 0.8f);  // Bright warm sun
+            ambientLight.linearAtt = 0.0f;
+            ambientLight.quadraticAtt = 0.0f;
+            ambientLight.enabled = true;
             
             // Flashlight still available
             flashlight.enabled = true;
