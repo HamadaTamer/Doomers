@@ -530,7 +530,7 @@ public:
         if (canFire(currentTime)) {
             ammo--;
             lastFireTime = currentTime;
-            weaponRecoil = 0.05f;  // Reduced recoil for smoother feel
+            weaponRecoil = 0.79f;  // Reduced recoil for smoother feel
             muzzleFlashTimer = 0.04f; // Slightly shorter flash
             isFiring = true;
         }

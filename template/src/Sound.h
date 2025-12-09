@@ -65,6 +65,8 @@ public:
         MCIERROR err = mciSendStringA(command, NULL, 0, NULL);
         
         if (err == 0) {
+            // Set volume to 30% (300 out of 1000) - much quieter background music
+            mciSendStringA("setaudio bgmusic volume to 300", NULL, 0, NULL);
             // Play with repeat
             mciSendStringA("play bgmusic repeat", NULL, 0, NULL);
             musicPlaying = true;

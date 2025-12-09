@@ -22,14 +22,7 @@
 enum ModelID {
     MODEL_CRATE = 0,
     MODEL_HEALTHPACK,
-    MODEL_ROCK,
     MODEL_AR_GUN,
-    MODEL_FLAG_POLE,
-    MODEL_LAVA_TERRAIN,
-    MODEL_DEVIL_BOSS,           // Main devil idle/pose
-    MODEL_DEVIL_WALK,           // Walking animation
-    MODEL_DEVIL_KICK,           // Melee kick attack
-    MODEL_DEVIL_DROP_KICK,      // Drop kick animation
     MODEL_AMMO_MAGAZINE,
     MODEL_COUNT
 };
@@ -364,48 +357,10 @@ public:
         sprintf(texturePath, "%s\\..\\res\\Models3D\\health-pack\\textures\\Healthpack_Textured_Albedo.png", exePath);
         loadModel(modelPath, models[MODEL_HEALTHPACK], texturePath);
         
-        // Load rock model
-        sprintf(modelPath, "%s\\..\\res\\Models3D\\Rock\\rock.obj", exePath);
-        sprintf(texturePath, "%s\\..\\res\\Models3D\\Rock\\TexturesCom_RockSharp0009_1_seamless_S.jpg.001.jpg", exePath);
-        loadModel(modelPath, models[MODEL_ROCK], texturePath);
-        
         // Load AR gun model
         sprintf(modelPath, "%s\\..\\res\\Models3D\\AR\\source\\Gun.obj", exePath);
         sprintf(texturePath, "%s\\..\\res\\Models3D\\AR\\textures\\GAP_Examen_Gun_albedo_DriesDeryckere.tga.png", exePath);
         loadModel(modelPath, models[MODEL_AR_GUN], texturePath);
-        
-        // Load flag pole model
-        sprintf(modelPath, "%s\\..\\res\\Models3D\\FlagPole\\Pole.obj", exePath);
-        sprintf(texturePath, "%s\\..\\res\\Models3D\\FlagPole\\file13.png", exePath);
-        loadModel(modelPath, models[MODEL_FLAG_POLE], texturePath);
-        
-        // Load Lava terrain FBX model - with error handling
-        sprintf(modelPath, "%s\\..\\res\\Models3D\\free-lava-zone-environment\\source\\TerrainGEN_3Model.fbx", exePath);
-        sprintf(texturePath, "%s\\..\\res\\Models3D\\free-lava-zone-environment\\textures\\TerrainGEN_3LAVAColor_8bit.png", exePath);
-        if (!loadModel(modelPath, models[MODEL_LAVA_TERRAIN], texturePath)) {
-            printf("WARNING: Lava terrain model failed to load, using textured quads instead\n");
-            models[MODEL_LAVA_TERRAIN].loaded = false;
-        }
-        
-        // Load devil/boss model - main pose (try with Y inversion for texture)
-        sprintf(modelPath, "%s\\..\\res\\Models3D\\devil\\devil.fbx", exePath);
-        sprintf(texturePath, "%s\\..\\res\\Models3D\\devil\\devil.png", exePath);
-        loadModel(modelPath, models[MODEL_DEVIL_BOSS], texturePath, true);
-        
-        // Load devil walking animation
-        sprintf(modelPath, "%s\\..\\res\\Models3D\\devil\\mutant_walking.fbx", exePath);
-        sprintf(texturePath, "%s\\..\\res\\Models3D\\devil\\devil.png", exePath);
-        loadModel(modelPath, models[MODEL_DEVIL_WALK], texturePath, true);
-        
-        // Load devil kick animation
-        sprintf(modelPath, "%s\\..\\res\\Models3D\\devil\\standing_melee_kick.fbx", exePath);
-        sprintf(texturePath, "%s\\..\\res\\Models3D\\devil\\devil.png", exePath);
-        loadModel(modelPath, models[MODEL_DEVIL_KICK], texturePath, true);
-        
-        // Load devil drop kick animation
-        sprintf(modelPath, "%s\\..\\res\\Models3D\\devil\\drop_kick.fbx", exePath);
-        sprintf(texturePath, "%s\\..\\res\\Models3D\\devil\\devil.png", exePath);
-        loadModel(modelPath, models[MODEL_DEVIL_DROP_KICK], texturePath, true);
         
         // Load ammo magazine model (MTL file was missing, now created)
         sprintf(modelPath, "%s\\..\\res\\Models3D\\ak-47-magazine\\source\\ak_47_round.obj", exePath);

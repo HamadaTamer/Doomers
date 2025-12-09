@@ -44,7 +44,7 @@ namespace LowPolyModels {
             glPushMatrix();
             // Apply recoil
             glTranslatef(0, 0, -recoil * 0.1f);  // Recoil moves gun backward (-Z)
-            glRotatef(recoil * 5, 1, 0, 0);
+            glRotatef(recoil * 0.5f, 1, 0, 0);
             // Scale and orient the AR model properly
             // Model imports with different axes - rotate to point barrel FORWARD (-Z in world)
             glRotatef(180, 0, 1, 0);  // Turn around to face forward
@@ -66,8 +66,8 @@ namespace LowPolyModels {
             // Apply bob and recoil
             float bobY = sin(bob * 2) * 0.01f;
             float bobX = cos(bob) * 0.005f;
-            glTranslatef(bobX, bobY - recoil * 0.02f, recoil * 0.08f);  // Recoil pushes back (+Z toward camera)
-            glRotatef(recoil * 3, 1, 0, 0);  // Tilt up from recoil
+            glTranslatef(bobX, bobY - recoil * 0.2f, recoil * 0.2f);  // Recoil pushes back (+Z toward camera)
+            glRotatef(recoil * 0.5f, 1, 0, 0);  // Tilt up from recoil
             // Orient model - barrel points FORWARD (-Z)
             glRotatef(180, 0, 1, 0);  // Turn around to face forward
             glScalef(1.0f, 1.0f, 1.0f);  // Normal scale

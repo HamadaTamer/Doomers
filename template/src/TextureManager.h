@@ -21,7 +21,6 @@ enum TextureID {
     // Floor/Ground textures
     TEX_FLOOR_LAB = 0,
     TEX_FLOOR_TILE,
-    TEX_FLOOR_TILE2,
     TEX_FLOOR_METAL,
     TEX_LAVA,
     TEX_LAVA_GLOW,
@@ -44,7 +43,6 @@ enum TextureID {
     TEX_PILLAR,
     
     // Character/Enemy textures
-    TEX_PLAYER,
     TEX_ENEMY_ZOMBIE,
     TEX_ENEMY_DEMON,
     TEX_ENEMY_BOSS,
@@ -55,28 +53,17 @@ enum TextureID {
     
     // Effect textures
     TEX_MUZZLE_FLASH,
-    TEX_CROSSHAIR,
     
     // Weapon textures
     TEX_WEAPON_METAL,      // For gun metal parts
     TEX_WEAPON_GRIP,       // For grips/handles
     
-    // Alien textures (for Level 2)
-    TEX_ALIEN_01,
-    TEX_ALIEN_02,
-    TEX_ALIEN_03,
-    TEX_ALIEN_04,
-    TEX_ALIEN_05,
-    TEX_ALIEN_06,
+    // Alien textures (for Level 2 - only used ones)
     TEX_ALIEN_07,      // For demons
     TEX_ALIEN_15,      // For zombies
     
     // Player armor texture
     TEX_GALVANIZED_BLUE,  // For player torso
-    
-    // Lava zone environment textures (from 3D model folder)
-    TEX_LAVA_TERRAIN,      // TerrainGEN_3LAVAColor.png
-    TEX_LAVA_TERRAIN_NORMAL,  // TerrainGEN_3Normal.png
     
     // Skybox textures - TitanMoon
     TEX_SKYBOX_FRONT,
@@ -169,10 +156,6 @@ public:
         textures[TEX_FLOOR_TILE] = loadTexture(filepath);
         texturesLoaded[TEX_FLOOR_TILE] = (textures[TEX_FLOOR_TILE] != 0);
         
-        sprintf(filepath, "%stile021.png", basePath);
-        textures[TEX_FLOOR_TILE2] = loadTexture(filepath);
-        texturesLoaded[TEX_FLOOR_TILE2] = (textures[TEX_FLOOR_TILE2] != 0);
-        
         sprintf(filepath, "%sfloor-grey.png", basePath);
         textures[TEX_FLOOR_METAL] = loadTexture(filepath);
         texturesLoaded[TEX_FLOOR_METAL] = (textures[TEX_FLOOR_METAL] != 0);
@@ -234,11 +217,6 @@ public:
         texturesLoaded[TEX_PILLAR] = (textures[TEX_PILLAR] != 0);
         
         // ==================== CHARACTER TEXTURES ====================
-        // Player uses galvanized blue texture
-        sprintf(filepath, "%sgalvanized_blue.jpg", basePath);
-        textures[TEX_PLAYER] = loadTexture(filepath);
-        texturesLoaded[TEX_PLAYER] = (textures[TEX_PLAYER] != 0);
-        
         // ZOMBIE - Use object-green.png for GREEN zombies
         sprintf(filepath, "%sobject-green.png", basePath);
         textures[TEX_ENEMY_ZOMBIE] = loadTexture(filepath);
@@ -269,10 +247,6 @@ public:
         textures[TEX_MUZZLE_FLASH] = loadTexture(filepath);
         texturesLoaded[TEX_MUZZLE_FLASH] = (textures[TEX_MUZZLE_FLASH] != 0);
         
-        sprintf(filepath, "%scrossHair.png", basePath);
-        textures[TEX_CROSSHAIR] = loadTexture(filepath);
-        texturesLoaded[TEX_CROSSHAIR] = (textures[TEX_CROSSHAIR] != 0);
-        
         // ==================== WEAPON TEXTURES ====================
         sprintf(filepath, "%sarmy-grey.png", basePath);
         textures[TEX_WEAPON_METAL] = loadTexture(filepath);
@@ -282,30 +256,7 @@ public:
         textures[TEX_WEAPON_GRIP] = loadTexture(filepath);
         texturesLoaded[TEX_WEAPON_GRIP] = (textures[TEX_WEAPON_GRIP] != 0);
         
-        // ==================== ALIEN TEXTURES (Level 2) ====================
-        sprintf(filepath, "%sweird_alien_textures/alien_01.jpg", basePath);
-        textures[TEX_ALIEN_01] = loadTexture(filepath);
-        texturesLoaded[TEX_ALIEN_01] = (textures[TEX_ALIEN_01] != 0);
-        
-        sprintf(filepath, "%sweird_alien_textures/alien_02.jpg", basePath);
-        textures[TEX_ALIEN_02] = loadTexture(filepath);
-        texturesLoaded[TEX_ALIEN_02] = (textures[TEX_ALIEN_02] != 0);
-        
-        sprintf(filepath, "%sweird_alien_textures/alien_03.jpg", basePath);
-        textures[TEX_ALIEN_03] = loadTexture(filepath);
-        texturesLoaded[TEX_ALIEN_03] = (textures[TEX_ALIEN_03] != 0);
-        
-        sprintf(filepath, "%sweird_alien_textures/alien_04.jpg", basePath);
-        textures[TEX_ALIEN_04] = loadTexture(filepath);
-        texturesLoaded[TEX_ALIEN_04] = (textures[TEX_ALIEN_04] != 0);
-        
-        sprintf(filepath, "%sweird_alien_textures/alien_05.jpg", basePath);
-        textures[TEX_ALIEN_05] = loadTexture(filepath);
-        texturesLoaded[TEX_ALIEN_05] = (textures[TEX_ALIEN_05] != 0);
-        
-        sprintf(filepath, "%sweird_alien_textures/alien_06.jpg", basePath);
-        textures[TEX_ALIEN_06] = loadTexture(filepath);
-        texturesLoaded[TEX_ALIEN_06] = (textures[TEX_ALIEN_06] != 0);
+        // ==================== ALIEN TEXTURES (Level 2 - only used ones) ====================
         
         // Alien 07 for DEMON body texture
         sprintf(filepath, "%sweird_alien_textures/alien_07.jpg", basePath);
@@ -321,19 +272,6 @@ public:
         sprintf(filepath, "%sgalvanized_blue.jpg", basePath);
         textures[TEX_GALVANIZED_BLUE] = loadTexture(filepath);
         texturesLoaded[TEX_GALVANIZED_BLUE] = (textures[TEX_GALVANIZED_BLUE] != 0);
-        
-        // ==================== LAVA TERRAIN TEXTURES (from 3D model folder) ====================
-        // Build model path: exePath\..\res\Models3D\ 
-        char modelPath[512];
-        sprintf(modelPath, "%s\\..\\res\\Models3D\\free-lava-zone-environment\\textures\\", exePath);
-        
-        sprintf(filepath, "%sTerrainGEN_3LAVAColor_8bit.png", modelPath);
-        textures[TEX_LAVA_TERRAIN] = loadTexture(filepath);
-        texturesLoaded[TEX_LAVA_TERRAIN] = (textures[TEX_LAVA_TERRAIN] != 0);
-        
-        sprintf(filepath, "%sTerrainGEN_3Normal_8bit.png", modelPath);
-        textures[TEX_LAVA_TERRAIN_NORMAL] = loadTexture(filepath);
-        texturesLoaded[TEX_LAVA_TERRAIN_NORMAL] = (textures[TEX_LAVA_TERRAIN_NORMAL] != 0);
         
         // ==================== SKYBOX TEXTURES (TitanMoon) ====================
         // Use backslashes for Windows paths

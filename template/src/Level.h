@@ -679,6 +679,129 @@ struct ExitDoor {
         
         glPopMatrix();
     }
+    
+    // Draw as a mystical victory portal (for Level 2)
+    void drawAsPortal() {
+        if (!isActive) return;
+        
+        glPushMatrix();
+        glTranslatef(position.x, position.y, position.z);
+        glRotatef(rotation, 0, 1, 0);
+        
+        float pulse = sin(lightPhase) * 0.2f + 0.8f;
+        float fastPulse = sin(lightPhase * 2.0f) * 0.15f + 0.85f;
+        float intensity = lightIntensity * pulse;
+        
+        // ===== Portal Frame (textured stone arch) =====
+        glEnable(GL_LIGHTING);
+        
+        // Left pillar
+        if (TextureManager::isLoaded(TEX_ROCK)) {
+            TextureManager::drawTexturedBox(TEX_ROCK, -2.0f, 2.0f, 0, 0.8f, 4.0f, 0.8f, 0.5f);
+        } else {
+            LowPolyModels::setColor(0.3f, 0.25f, 0.2f);
+            glPushMatrix();
+            glTranslatef(-2.0f, 2.0f, 0);
+            LowPolyModels::drawBox(0.8f, 4.0f, 0.8f);
+            glPopMatrix();
+        }
+        
+        // Right pillar
+        if (TextureManager::isLoaded(TEX_ROCK)) {
+            TextureManager::drawTexturedBox(TEX_ROCK, 2.0f, 2.0f, 0, 0.8f, 4.0f, 0.8f, 0.5f);
+        } else {
+            LowPolyModels::setColor(0.3f, 0.25f, 0.2f);
+            glPushMatrix();
+            glTranslatef(2.0f, 2.0f, 0);
+            LowPolyModels::drawBox(0.8f, 4.0f, 0.8f);
+            glPopMatrix();
+        }
+        
+        // Top arch
+        if (TextureManager::isLoaded(TEX_ROCK)) {
+            TextureManager::drawTexturedBox(TEX_ROCK, 0, 4.3f, 0, 4.8f, 0.6f, 0.8f, 0.5f);
+        } else {
+            LowPolyModels::setColor(0.35f, 0.28f, 0.22f);
+            glPushMatrix();
+            glTranslatef(0, 4.3f, 0);
+            LowPolyModels::drawBox(4.8f, 0.6f, 0.8f);
+            glPopMatrix();
+        }
+        
+        // ===== Portal Energy Effect (swirling glow) =====
+        glDisable(GL_LIGHTING);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        
+        // Outer ring glow
+        glColor4f(0.2f * intensity, 0.8f * intensity, 1.0f * intensity, 0.6f);
+        glPushMatrix();
+        glTranslatef(0, 2.0f, 0.1f);
+        glRotatef(lightPhase * 30.0f, 0, 0, 1);
+        glutSolidTorus(0.15f, 1.8f, 12, 24);
+        glPopMatrix();
+        
+        // Inner ring (counter-rotate)
+        glColor4f(0.4f * intensity, 0.9f * intensity, 1.0f * intensity, 0.7f);
+        glPushMatrix();
+        glTranslatef(0, 2.0f, 0.15f);
+        glRotatef(-lightPhase * 45.0f, 0, 0, 1);
+        glutSolidTorus(0.1f, 1.2f, 10, 20);
+        glPopMatrix();
+        
+        // Center energy core
+        glColor4f(0.6f * fastPulse, 0.95f * fastPulse, 1.0f * fastPulse, 0.8f);
+        glPushMatrix();
+        glTranslatef(0, 2.0f, 0.2f);
+        glutSolidSphere(0.5f * fastPulse, 16, 16);
+        glPopMatrix();
+        
+        // Portal surface with texture
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        if (TextureManager::isLoaded(TEX_LAVA_GLOW)) {
+            TextureManager::bind(TEX_LAVA_GLOW);
+            glColor4f(0.3f, 0.7f, 1.0f, 0.5f * intensity);
+        } else {
+            glColor4f(0.1f * intensity, 0.5f * intensity, 0.8f * intensity, 0.4f);
+        }
+        glPushMatrix();
+        glTranslatef(0, 2.0f, 0.05f);
+        glBegin(GL_QUADS);
+        glTexCoord2f(0, 0); glVertex3f(-1.5f, -1.8f, 0);
+        glTexCoord2f(1, 0); glVertex3f(1.5f, -1.8f, 0);
+        glTexCoord2f(1, 1); glVertex3f(1.5f, 1.8f, 0);
+        glTexCoord2f(0, 1); glVertex3f(-1.5f, 1.8f, 0);
+        glEnd();
+        TextureManager::unbind();
+        glPopMatrix();
+        
+        // Floating runes around portal
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        for (int i = 0; i < 6; i++) {
+            float angle = (float)i / 6.0f * 6.28318f + lightPhase * 0.5f;
+            float rx = sin(angle) * 2.5f;
+            float ry = 2.0f + cos(angle * 2.0f + lightPhase) * 0.5f;
+            
+            glColor4f(0.5f * fastPulse, 0.9f * fastPulse, 1.0f * fastPulse, 0.7f);
+            glPushMatrix();
+            glTranslatef(rx, ry, 0.3f);
+            glutSolidSphere(0.1f, 6, 6);
+            glPopMatrix();
+        }
+        
+        // Ground indicator
+        glColor4f(0.2f * intensity, 0.7f * intensity, 1.0f * intensity, 0.5f);
+        glPushMatrix();
+        glTranslatef(0, 0.05f, 1.5f);
+        glRotatef(90, 1, 0, 0);
+        glutSolidTorus(0.08f, 0.8f, 8, 16);
+        glPopMatrix();
+        
+        glDisable(GL_BLEND);
+        glEnable(GL_LIGHTING);
+        
+        glPopMatrix();
+    }
 };
 
 class Level {
@@ -715,6 +838,7 @@ public:
     bool bossPhaseStarted;      // Has the boss fight begun?
     bool regularEnemiesCleared; // Are all non-boss enemies dead?
     int bossEnemyIndex;         // Index of the boss enemy in array
+    bool bossKilledPortalReady; // Boss killed, portal should appear after shake
     
     // Level properties
     Vector3 playerStart;
@@ -753,6 +877,7 @@ public:
         bossPhaseStarted = false;
         regularEnemiesCleared = false;
         bossEnemyIndex = -1;
+        bossKilledPortalReady = false;
         
         // Reset exit door
         exitDoor = ExitDoor();
@@ -1190,7 +1315,7 @@ public:
         numCollectibles++;
         
         // ===================================================================
-        // ROCKS/CRATES - Cover and mystery boxes
+        // ROCKS/CRATES - Cover (keep the drawn boxes, they look cool)
         // ===================================================================
         numCrates = 0;
         
@@ -1213,22 +1338,44 @@ public:
         crates[numCrates].updateBounds();
         numCrates++;
         
-        // Mystery boxes
-        crates[numCrates].position = Vector3(-18, 2.5f, -18);
+        // Additional cover rocks
+        crates[numCrates].position = Vector3(-8, 1.5f, -8);
+        crates[numCrates].size = 1.5f;
+        crates[numCrates].isSciFi = false;
+        crates[numCrates].updateBounds();
+        numCrates++;
+        
+        crates[numCrates].position = Vector3(8, 1.5f, 8);
+        crates[numCrates].size = 1.6f;
+        crates[numCrates].isSciFi = false;
+        crates[numCrates].updateBounds();
+        numCrates++;
+        
+        // ===================================================================
+        // MYSTERY BOXES - Same style as Level 1 (sci-fi crates)
+        // ===================================================================
+        crates[numCrates].position = Vector3(-18, 3.5f, -18);
         crates[numCrates].size = 1.2f;
         crates[numCrates].isSciFi = true;
         crates[numCrates].setAsMysteryBox();
         crates[numCrates].updateBounds();
         numCrates++;
         
-        crates[numCrates].position = Vector3(18, 2.5f, 18);
+        crates[numCrates].position = Vector3(18, 3.5f, 18);
         crates[numCrates].size = 1.2f;
         crates[numCrates].isSciFi = true;
         crates[numCrates].setAsMysteryBox();
         crates[numCrates].updateBounds();
         numCrates++;
         
-        crates[numCrates].position = Vector3(0, 4.0f, 28);
+        crates[numCrates].position = Vector3(-15, 2.5f, 0);
+        crates[numCrates].size = 1.2f;
+        crates[numCrates].isSciFi = true;
+        crates[numCrates].setAsMysteryBox();
+        crates[numCrates].updateBounds();
+        numCrates++;
+        
+        crates[numCrates].position = Vector3(15, 2.5f, 0);
         crates[numCrates].size = 1.2f;
         crates[numCrates].isSciFi = true;
         crates[numCrates].setAsMysteryBox();
@@ -1236,11 +1383,56 @@ public:
         numCrates++;
         
         numDoors = 0;
+        
+        // ===================================================================
+        // PARKOUR OBSTACLES - Barriers on main platform for vaulting (press E)
+        // Main platform is at Y=1.5, extends from -17.5 to +17.5 in X and Z
+        // Avoiding rocks at: (-12,5), (12,-5), (0,12), (-8,-8), (8,8)
+        // ===================================================================
         numParkourObstacles = 0;
         
-        // Exit door (not used in Level 2)
-        exitDoor.position = Vector3(0, 3.5f, 40);
-        exitDoor.rotation = 180.0f;
+        // Barrier at front-left of platform (away from rocks)
+        parkourObstacles[numParkourObstacles].position = Vector3(-14, 2.0f, -12);
+        parkourObstacles[numParkourObstacles].width = 5.0f;
+        parkourObstacles[numParkourObstacles].height = 1.2f;
+        parkourObstacles[numParkourObstacles].depth = 0.5f;
+        parkourObstacles[numParkourObstacles].rotation = 30.0f;
+        parkourObstacles[numParkourObstacles].updateBounds();
+        numParkourObstacles++;
+        
+        // Barrier at front-right of platform
+        parkourObstacles[numParkourObstacles].position = Vector3(14, 2.0f, -12);
+        parkourObstacles[numParkourObstacles].width = 5.0f;
+        parkourObstacles[numParkourObstacles].height = 1.0f;
+        parkourObstacles[numParkourObstacles].depth = 0.4f;
+        parkourObstacles[numParkourObstacles].rotation = -30.0f;
+        parkourObstacles[numParkourObstacles].updateBounds();
+        numParkourObstacles++;
+        
+        // Barrier in center-back area (between rocks)
+        parkourObstacles[numParkourObstacles].position = Vector3(5, 2.0f, -2);
+        parkourObstacles[numParkourObstacles].width = 4.0f;
+        parkourObstacles[numParkourObstacles].height = 1.0f;
+        parkourObstacles[numParkourObstacles].depth = 0.4f;
+        parkourObstacles[numParkourObstacles].rotation = 0.0f;
+        parkourObstacles[numParkourObstacles].updateBounds();
+        numParkourObstacles++;
+        
+        // Barrier on left side near edge
+        parkourObstacles[numParkourObstacles].position = Vector3(-5, 2.0f, -2);
+        parkourObstacles[numParkourObstacles].width = 4.0f;
+        parkourObstacles[numParkourObstacles].height = 1.1f;
+        parkourObstacles[numParkourObstacles].depth = 0.5f;
+        parkourObstacles[numParkourObstacles].rotation = 0.0f;
+        parkourObstacles[numParkourObstacles].updateBounds();
+        numParkourObstacles++;
+        
+        // ===================================================================
+        // EXIT PORTAL - Appears after killing boss (on boss platform)
+        // Boss platform is at Y=4.5, so portal at Y=5.5 (on top of platform)
+        // ===================================================================
+        exitDoor.position = Vector3(0, 5.5f, 28);  // On boss platform, near front
+        exitDoor.rotation = 180.0f;  // Face the player coming from main arena
         exitDoor.isActive = false;
         exitDoor.updateBounds();
     }
@@ -1329,7 +1521,7 @@ public:
                 if (bossEnemyIndex >= 0 && bossEnemyIndex < numEnemies) {
                     if (enemies[bossEnemyIndex].isDead()) {
                         allEnemiesKilled = true;
-                        objectiveReached = true; // Victory shake + auto-win
+                        bossKilledPortalReady = true; // Triggers victory shake, then portal appears
                     }
                 }
             }
@@ -2884,29 +3076,172 @@ public:
         glutSolidSphere(0.15f * thronePulse, 6, 6);
         glPopMatrix();
         
-        // Summoning circle on ground below throne
-        glColor4f(0.6f * thronePulse, 0.0f, 0.3f * thronePulse, 0.6f);
-        glPushMatrix();
-        glTranslatef(0, -0.3f, -1.0f);
-        glRotatef(90, 1, 0, 0);
-        glRotatef(levelTime * 15.0f, 0, 0, 1);
-        glutSolidTorus(0.15f, 4.0f, 8, 24);
-        glPopMatrix();
-        
-        // Inner summoning ring
-        glColor4f(0.9f * thronePulse, 0.2f * thronePulse, 0.4f * thronePulse, 0.5f);
-        glPushMatrix();
-        glTranslatef(0, -0.25f, -1.0f);
-        glRotatef(90, 1, 0, 0);
-        glRotatef(-levelTime * 25.0f, 0, 0, 1);
-        glutSolidTorus(0.1f, 2.5f, 6, 18);
-        glPopMatrix();
+        // (Summoning circle removed - was too purple)
         
         glDisable(GL_BLEND);
         glEnable(GL_LIGHTING);
         
         glPopMatrix();
         
+        // =====================================================
+        // BOSS PLATFORM CEILING AND COLUMNS - Textured structure
+        // =====================================================
+        // Boss platform is at (0, 4.5, 30), platform is about 15x15
+        float bpX = 0;
+        float bpY = 4.5f;
+        float bpZ = 30;
+        float ceilingHeight = 10.0f;  // Height of ceiling - lower for visibility
+        float columnHeight = ceilingHeight - bpY;  // Column height = 5.5 units
+        
+        glEnable(GL_LIGHTING);
+        
+        // ===== Supporting Columns (4 corners) =====
+        float columnOffset = 6.0f;  // Distance from center to columns (smaller for tighter structure)
+        float colRadius = 1.5f;  // Column width - BIGGER
+        
+        // Column positions (4 corners)
+        float columnPositions[4][2] = {
+            {bpX - columnOffset, bpZ - columnOffset},  // Front-left
+            {bpX + columnOffset, bpZ - columnOffset},  // Front-right
+            {bpX - columnOffset, bpZ + columnOffset},  // Back-left
+            {bpX + columnOffset, bpZ + columnOffset}   // Back-right
+        };
+        
+        for (int i = 0; i < 4; i++) {
+            float cx = columnPositions[i][0];
+            float cz = columnPositions[i][1];
+            
+            // Main column shaft - textured
+            if (TextureManager::isLoaded(TEX_ROCK)) {
+                TextureManager::drawTexturedBox(TEX_ROCK, cx, bpY + columnHeight/2, cz, 
+                                                colRadius, columnHeight, colRadius, 0.3f);
+            } else {
+                LowPolyModels::setColor(0.25f, 0.2f, 0.18f);
+                glPushMatrix();
+                glTranslatef(cx, bpY + columnHeight/2, cz);
+                LowPolyModels::drawBox(colRadius, columnHeight, colRadius);
+                glPopMatrix();
+            }
+            
+            // Column base (wider)
+            if (TextureManager::isLoaded(TEX_ROCK)) {
+                TextureManager::drawTexturedBox(TEX_ROCK, cx, bpY + 0.4f, cz, 
+                                                colRadius * 1.5f, 0.8f, colRadius * 1.5f, 0.4f);
+            } else {
+                LowPolyModels::setColor(0.2f, 0.15f, 0.13f);
+                glPushMatrix();
+                glTranslatef(cx, bpY + 0.4f, cz);
+                LowPolyModels::drawBox(colRadius * 1.5f, 0.8f, colRadius * 1.5f);
+                glPopMatrix();
+            }
+            
+            // Column capital (decorative top)
+            if (TextureManager::isLoaded(TEX_ROCK)) {
+                TextureManager::drawTexturedBox(TEX_ROCK, cx, ceilingHeight - 0.4f, cz, 
+                                                colRadius * 1.8f, 0.8f, colRadius * 1.8f, 0.4f);
+            } else {
+                LowPolyModels::setColor(0.28f, 0.22f, 0.2f);
+                glPushMatrix();
+                glTranslatef(cx, ceilingHeight - 0.4f, cz);
+                LowPolyModels::drawBox(colRadius * 1.8f, 0.8f, colRadius * 1.8f);
+                glPopMatrix();
+            }
+        }
+        
+        // ===== Ceiling Structure =====
+        float ceilingWidth = columnOffset * 2 + 6.0f;  // Wider ceiling
+        float ceilingThickness = 2.0f;  // Thicker ceiling
+        
+        // Main ceiling slab - textured with darker rock
+        if (TextureManager::isLoaded(TEX_ROCK)) {
+            TextureManager::drawTexturedBox(TEX_ROCK, bpX, ceilingHeight + ceilingThickness/2, bpZ, 
+                                            ceilingWidth, ceilingThickness, ceilingWidth, 0.2f);
+        } else {
+            LowPolyModels::setColor(0.25f, 0.18f, 0.15f);
+            glPushMatrix();
+            glTranslatef(bpX, ceilingHeight + ceilingThickness/2, bpZ);
+            LowPolyModels::drawBox(ceilingWidth, ceilingThickness, ceilingWidth);
+            glPopMatrix();
+        }
+        
+        // Ceiling edge beams (cross beams connecting columns)
+        float beamThickness = 1.2f;  // Thicker beams
+        
+        // Front beam
+        if (TextureManager::isLoaded(TEX_ROCK)) {
+            TextureManager::drawTexturedBox(TEX_ROCK, bpX, ceilingHeight - beamThickness/2, bpZ - columnOffset, 
+                                            ceilingWidth, beamThickness, beamThickness, 0.35f);
+        } else {
+            LowPolyModels::setColor(0.22f, 0.16f, 0.13f);
+            glPushMatrix();
+            glTranslatef(bpX, ceilingHeight - beamThickness/2, bpZ - columnOffset);
+            LowPolyModels::drawBox(ceilingWidth, beamThickness, beamThickness);
+            glPopMatrix();
+        }
+        // Back beam
+        if (TextureManager::isLoaded(TEX_ROCK)) {
+            TextureManager::drawTexturedBox(TEX_ROCK, bpX, ceilingHeight - beamThickness/2, bpZ + columnOffset, 
+                                            ceilingWidth, beamThickness, beamThickness, 0.35f);
+        } else {
+            LowPolyModels::setColor(0.22f, 0.16f, 0.13f);
+            glPushMatrix();
+            glTranslatef(bpX, ceilingHeight - beamThickness/2, bpZ + columnOffset);
+            LowPolyModels::drawBox(ceilingWidth, beamThickness, beamThickness);
+            glPopMatrix();
+        }
+        // Left beam
+        if (TextureManager::isLoaded(TEX_ROCK)) {
+            TextureManager::drawTexturedBox(TEX_ROCK, bpX - columnOffset, ceilingHeight - beamThickness/2, bpZ, 
+                                            beamThickness, beamThickness, ceilingWidth, 0.35f);
+        } else {
+            LowPolyModels::setColor(0.22f, 0.16f, 0.13f);
+            glPushMatrix();
+            glTranslatef(bpX - columnOffset, ceilingHeight - beamThickness/2, bpZ);
+            LowPolyModels::drawBox(beamThickness, beamThickness, ceilingWidth);
+            glPopMatrix();
+        }
+        // Right beam
+        if (TextureManager::isLoaded(TEX_ROCK)) {
+            TextureManager::drawTexturedBox(TEX_ROCK, bpX + columnOffset, ceilingHeight - beamThickness/2, bpZ, 
+                                            beamThickness, beamThickness, ceilingWidth, 0.35f);
+        } else {
+            LowPolyModels::setColor(0.22f, 0.16f, 0.13f);
+            glPushMatrix();
+            glTranslatef(bpX + columnOffset, ceilingHeight - beamThickness/2, bpZ);
+            LowPolyModels::drawBox(beamThickness, beamThickness, ceilingWidth);
+            glPopMatrix();
+        }
+        
+        // Central hanging fixture (ominous)
+        glDisable(GL_LIGHTING);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        
+        float fixturePulse = sin(levelTime * 2.5f) * 0.2f + 0.8f;
+        glColor4f(0.9f * fixturePulse, 0.3f * fixturePulse, 0.1f * fixturePulse, 0.7f);
+        
+        // Hanging chains (simple lines)
+        glPushMatrix();
+        glTranslatef(bpX, ceilingHeight - 2.0f, bpZ);
+        glutSolidSphere(0.8f * fixturePulse, 12, 12);  // Central orb
+        glPopMatrix();
+        
+        // Smaller orbs around the main one
+        for (int i = 0; i < 4; i++) {
+            float angle = i * 1.5708f + levelTime * 0.5f;
+            float orbX = bpX + sin(angle) * 2.0f;
+            float orbZ = bpZ + cos(angle) * 2.0f;
+            
+            glPushMatrix();
+            glTranslatef(orbX, ceilingHeight - 2.5f, orbZ);
+            glColor4f(0.8f * fixturePulse, 0.2f * fixturePulse, 0.05f * fixturePulse, 0.6f);
+            glutSolidSphere(0.4f * fixturePulse, 8, 8);
+            glPopMatrix();
+        }
+        
+        glDisable(GL_BLEND);
+        glEnable(GL_LIGHTING);
+
         // =====================================================
         // FLOATING FIRE ORBS - Mystical floating flames around the arena
         // =====================================================
@@ -3541,6 +3876,11 @@ public:
         }
         DEBUG_LOG("Level::draw platforms done\n");
         
+        // Draw demonic structures for Level 2 (ceiling, columns, pillars)
+        if (levelID == LEVEL_2_HELL_ARENA) {
+            drawDemonicStructures();
+        }
+        
         // Draw crates/rocks (with distance culling)
         DEBUG_LOG("Level::draw crates START\n");
         for (int i = 0; i < numCrates; i++) {
@@ -3549,18 +3889,24 @@ public:
             if (dist > drawDistance) continue;
             
             if (levelID == LEVEL_2_HELL_ARENA) {
-                glPushMatrix();
-                glTranslatef(crates[i].position.x, crates[i].position.y, crates[i].position.z);
-                
-                // Draw textured lava rock
-                if (TextureManager::isLoaded(TEX_ROCK)) {
-                    TextureManager::drawTexturedBox(TEX_ROCK, 0, crates[i].size * 0.5f, 0,
-                        crates[i].size, crates[i].size, crates[i].size, 0.5f);
+                // Mystery boxes use the animated 3D model, rocks use textured rocks
+                if (crates[i].isMysteryBox) {
+                    crates[i].draw();  // Use animated mystery box with 3D model
                 } else {
-                    LowPolyModels::drawLavaRock(crates[i].size);
+                    // Non-mystery boxes are cover rocks
+                    glPushMatrix();
+                    glTranslatef(crates[i].position.x, crates[i].position.y, crates[i].position.z);
+                    
+                    // Draw textured lava rock
+                    if (TextureManager::isLoaded(TEX_ROCK)) {
+                        TextureManager::drawTexturedBox(TEX_ROCK, 0, crates[i].size * 0.5f, 0,
+                            crates[i].size, crates[i].size, crates[i].size, 0.5f);
+                    } else {
+                        LowPolyModels::drawLavaRock(crates[i].size);
+                    }
+                    
+                    glPopMatrix();
                 }
-                
-                glPopMatrix();
             } else {
                 crates[i].draw();
             }
@@ -3585,9 +3931,13 @@ public:
         }
         DEBUG_LOG("Level::draw doors done\n");
         
-        // Draw exit door (if all enemies killed)
-        if (allEnemiesKilled || exitDoor.isActive) {
-            exitDoor.draw();
+        // Draw exit door (if all enemies killed) - use portal for Level 2
+        if (allEnemiesKilled || exitDoor.isActive || bossKilledPortalReady) {
+            if (levelID == LEVEL_2_HELL_ARENA && bossKilledPortalReady) {
+                exitDoor.drawAsPortal();  // Victory portal for Level 2
+            } else {
+                exitDoor.draw();
+            }
             
             // Draw glowing path guide to exit door when all enemies killed
             if (allEnemiesKilled && exitDoor.isActive) {

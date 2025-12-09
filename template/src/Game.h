@@ -219,7 +219,7 @@ public:
         GAME_LOG("Game::startGame START\n");
         // Stop any lingering win/lose sounds from previous game
         sound.stopWinLoseSound();
-        currentLevelNum = 2;
+        currentLevelNum = 1;
         GAME_LOG("Game::startGame calling loadLevel(1)\n");
         loadLevel(currentLevelNum);
         GAME_LOG("Game::startGame loadLevel done\n");
@@ -533,11 +533,18 @@ public:
         // Check win/lose conditions (but not if we're already transitioning!)
         if (player.isDead()) {
             onGameOver();
-        } else if (!isTransitioning && !victoryShakeActive && currentLevel.isComplete()) {
-            // For Level 2, trigger victory shake instead of direct win
-            if (currentLevel.levelID == LEVEL_2_HELL_ARENA) {
+        } else if (!isTransitioning && !victoryShakeActive) {
+            // For Level 2 - boss killed triggers victory shake, then portal
+            if (currentLevel.levelID == LEVEL_2_HELL_ARENA && currentLevel.bossKilledPortalReady && !currentLevel.exitDoor.isActive) {
                 startVictoryShake();
-            } else {
+                currentLevel.bossKilledPortalReady = false; // Only trigger once
+            }
+            // For Level 2 - portal used triggers win
+            else if (currentLevel.levelID == LEVEL_2_HELL_ARENA && currentLevel.isComplete()) {
+                onLevelComplete();
+            }
+            // For Level 1 - objective reached
+            else if (currentLevel.levelID != LEVEL_2_HELL_ARENA && currentLevel.isComplete()) {
                 onLevelComplete();
             }
         } else if (currentLevel.isTimeUp()) {
@@ -1024,12 +1031,12 @@ public:
                 sound.playSound(Sounds::SFX_FOOTSTEPS_RUN);
                 break;
             }
-            case 3: // Exit Door
+            case 3: // Exit Door / Victory Portal
             {
                 if (currentLevel.exitDoor.isActive) {
                     currentLevel.exitDoor.tryOpen();
                     sound.playSound(Sounds::SFX_SHOCKWAVE);
-                    // DIRECTLY trigger level transition!
+                    // Trigger level completion
                     currentLevel.objectiveReached = true;
                 }
                 break;
@@ -1092,11 +1099,19 @@ public:
             }
         }
         
-        // When shake complete, trigger victory
+        // When shake complete, trigger victory or activate portal
         if (victoryShakeTime >= victoryShakeDuration) {
             victoryShakeActive = false;
             victoryShakeIntensity = 0.0f;
-            onLevelComplete();
+            
+            // For Level 2, activate the victory portal instead of immediate win
+            if (currentLevelNum == 2) {
+                currentLevel.exitDoor.activate();
+                // Sound effect for portal appearing
+                sound.playSound(Sounds::SFX_THUNDER);
+            } else {
+                onLevelComplete();
+            }
         }
     }
     
@@ -1763,13 +1778,19 @@ public:
                 sound.playSound(Sounds::SFX_BUTTON_CLICK);
                 switch (menu.getSelected()) {
                     case 0: // Try again
+                        sound.stopWinLoseSound();
                         loadLevel(currentLevelNum);
                         state = STATE_PLAYING;
                         captureMouse(true);
+                        // Restart in-game music
+                        sound.playMusic(Sounds::MUSIC_INGAME);
                         break;
                     case 1: // Main menu
+                        sound.stopWinLoseSound();
                         state = STATE_MAIN_MENU;
                         menu.setMenu(MENU_MAIN);
+                        // Play menu music
+                        sound.playMusic(Sounds::MUSIC_MENU);
                         break;
                 }
             }
